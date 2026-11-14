@@ -48,11 +48,19 @@ npm test                          # tests unitaires
 | Fichier | Contenu |
 | --- | --- |
 | `data/cities/cities.france.json` | villes françaises ≥ 5 000 hab. (GeoNames), avec gare SNCF ≤ 3 km |
-| `data/cities/cities.europe.json` | destinations européennes ≥ 5 000 hab. (hors France) |
+| `data/cities/cities.europe.json` | destinations européennes ≥ 5 000 hab. (hors France) — **régénérable, non versionné** (voir ci-dessous) |
 | `data/airports/airports.europe.json` | aéroports européens avec code IATA (OpenFlights) |
 | `data/fixtures/demo-journey.json` | itinéraire de démonstration figé (voir ci-dessous) |
 
-Dernière génération : **2 076 villes françaises** (dont 1 450 avec gare), **17 857 villes européennes**, **1 031 aéroports**. Les fichiers sont régénérables à tout moment via `npm run prepare:data` (aucune clé d'API requise).
+Dernière génération : **2 076 villes françaises** (dont 1 450 avec gare), **17 857 villes européennes**, **1 031 aéroports**. Aucune clé d'API n'est requise.
+
+> ℹ️ **`cities.europe.json` n'est pas versionné** : c'est une donnée dérivée de ~2,5 Mo (17 857 villes), trop volumineuse pour le dépôt alors qu'elle se régénère à l'identique en ~30 secondes. Après un `git clone`, lancer simplement :
+>
+> ```bash
+> npm run prepare:cities   # recrée cities.france.json (déjà versionné) et cities.europe.json
+> ```
+>
+> Le script et sa logique de filtrage sont bien sûr versionnés (`scripts/prepare-cities.ts`).
 
 ## 🎮 Premier test avec un itinéraire fixé
 
