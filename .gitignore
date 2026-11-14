@@ -1,0 +1,23 @@
+# Dépendances
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Environnement
+.env
+.env.local
+
+# Tests
+coverage/
+
+# Divers
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*
+.tmp-checks/
+
+# Fichiers de travail de la maquette (régénérables via scripts/build-demo-data.ts)
+data/tmp/

@@ -1,0 +1,12 @@
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}

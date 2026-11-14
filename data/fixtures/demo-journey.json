@@ -1,0 +1,91 @@
+{
+  "challengeDate": "2026-11-14",
+  "originCityId": "2964587",
+  "destCityId": "2761369",
+  "totalDurationMin": 325,
+  "segments": [
+    {
+      "index": 1,
+      "kind": "rail",
+      "modeDetail": "TGV",
+      "lineOrCarrier": "TGV inOui",
+      "durationMin": 46,
+      "from": "Reims-Centre",
+      "to": "Paris-Est"
+    },
+    {
+      "index": 2,
+      "kind": "connection",
+      "modeDetail": "Correspondance",
+      "lineOrCarrier": "",
+      "durationMin": 12,
+      "from": "Paris-Est",
+      "to": "Gare de l'Est"
+    },
+    {
+      "index": 3,
+      "kind": "urban",
+      "modeDetail": "Métro",
+      "lineOrCarrier": "Métro ligne 5",
+      "durationMin": 4,
+      "from": "Gare de l'Est",
+      "to": "Gare du Nord"
+    },
+    {
+      "index": 4,
+      "kind": "connection",
+      "modeDetail": "Correspondance",
+      "lineOrCarrier": "",
+      "durationMin": 5,
+      "from": "Gare du Nord",
+      "to": "Gare du Nord (RER)"
+    },
+    {
+      "index": 5,
+      "kind": "urban",
+      "modeDetail": "RER",
+      "lineOrCarrier": "RER B",
+      "durationMin": 34,
+      "from": "Gare du Nord (RER)",
+      "to": "Aéroport CDG 2",
+      "intermediateStops": ["Aulnay-sous-Bois"]
+    },
+    {
+      "index": 6,
+      "kind": "connection",
+      "modeDetail": "Enregistrement et embarquement",
+      "lineOrCarrier": "",
+      "durationMin": 75,
+      "from": "Aéroport CDG 2",
+      "to": "Paris-CDG"
+    },
+    {
+      "index": 7,
+      "kind": "air",
+      "modeDetail": "Avion",
+      "lineOrCarrier": "Air France",
+      "durationMin": 110,
+      "from": "Paris-CDG",
+      "to": "Vienne-Schwechat"
+    },
+    {
+      "index": 8,
+      "kind": "connection",
+      "modeDetail": "Correspondance",
+      "lineOrCarrier": "",
+      "durationMin": 12,
+      "from": "Vienne-Schwechat",
+      "to": "Flughafen Wien"
+    },
+    {
+      "index": 9,
+      "kind": "rail",
+      "modeDetail": "S-Bahn",
+      "lineOrCarrier": "S-Bahn S7 (ÖBB)",
+      "durationMin": 27,
+      "from": "Flughafen Wien",
+      "to": "Wien Mitte",
+      "intermediateStops": ["Wien Praterstern"]
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+// Destination Mystère — modèle de données (spécification §4).
+// Le champ pivot `journey` (JSON) contient l'itinéraire complet : tous les
+// indices sont des projections de cette structure (§4, « Contenu de journey »).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model City {
+  id              String  @id // identifiant GeoNames — jamais le nom (homonymes)
+  name            String
+  country         String
+  lat             Float
+  lng             Float
+  population      Int
+  hasTrainStation Boolean @default(false)
+  geohash         String // précision 6, pour l'index spatial du snap
+
+  originChallenges      DailyChallenge[] @relation("origin")
+  destinationChallenges DailyChallenge[] @relation("destination")
+
+  @@index([country])
+  @@index([geohash])
+}
+
+model DailyChallenge {
+  challengeDate    DateTime @id // une seule ligne par jour (fuseau Europe/Paris)
+  originCityId     String
+  destCityId       String
+  journey          Json // segments complets — JAMAIS envoyé au client avant la fin
+  totalDurationMin Int
+  generatedAt      DateTime @default(now())
+
+  originCity      City          @relation("origin", fields: [originCityId], references: [id])
+  destinationCity City          @relation("destination", fields: [destCityId], references: [id])
+  gameSessions    GameSession[]
+
+  @@index([originCityId])
+  @@index([destCityId])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  pseudo       String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  gameSessions GameSession[]
+  stats        UserStats?
+}
+
+model GameSession {
+  id            String    @id @default(cuid())
+  userId        String
+  challengeDate DateTime
+  status        String // ACTIVE | WON | LOST
+  attemptCount  Int       @default(0)
+  score         Int       @default(0)
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  user           User            @relation(fields: [userId], references: [id])
+  dailyChallenge DailyChallenge @relation(fields: [challengeDate], references: [challengeDate])
+  guesses        Guess[]
+
+  // Anti-triche : une seule partie par joueur et par jour (§7).
+  @@unique([userId, challengeDate])
+  @@index([challengeDate, status])
+}
+
+model Guess {
+  id            String  @id @default(cuid())
+  sessionId     String
+  attemptNumber Int
+  clickLat      Float // le client n'envoie QUE lat/lng (§7)
+  clickLng      Float
+  snappedCityId String // ville rattachée par le serveur
+  correct       Boolean
+
+  session GameSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId])
+}
+
+model UserStats {
+  userId       String @id
+  currentStreak Int   @default(0)
+  bestStreak   Int   @default(0)
+  totalScore   Int   @default(0)
+  gamesPlayed  Int   @default(0)
+  gamesWon     Int   @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+}
