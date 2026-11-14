@@ -1,4 +1,3 @@
-
 # 🚆 Destination Mystère — Spécifications & document d'instructions
 
 > **Jeu quotidien de devinette d'itinéraire.** Chaque jour, le système génère un trajet entre une ville française (avec gare) et une ville européenne, calculé en transports en commun uniquement. Le joueur ne voit que la ville de départ et la durée totale ; il doit localiser la destination sur une carte. Les indices se débloquent essai après essai.
@@ -22,15 +21,17 @@
 |---|---|
 | **Ouverture** | Ville de départ + **durée totale du trajet** (portes-à-portes) |
 | **Essai 1** | Clic sur la carte → rattaché à la **ville > 5 000 habitants la plus proche** |
-| **Après l'échec 1** | **Indice A** : la liste ordonnée des **modes de transport** (ex. « TER → TGV → Avion → Métro »), **sans les durées** |
-| **Après l'échec 2** | **Indice B** : la **durée de chaque segment** |
+| **Après chaque clic** | La ville devinée est épinglée sur la carte avec sa **distance à la destination secrète** (« à X km du but ») |
+| **Après l'échec 1** | **Indice A** : la liste ordonnée des **modes de transport**, ramenés aux seules catégories **transports urbains / avion / train** (ex. « Transports urbains → Avion → Transports urbains »), **sans les durées** |
+| **Après l'échec 2** | **Indice B** : les **modes de l'indice A et les durées des segments ensemble** (ex. « Transports urbains — 36 min → Avion — 107 min → Transports urbains — 31 min ») |
 | **Après l'échec 3** | **Indice C** : le **nom des lignes / compagnies** (ex. « TER Grand Est, TGV inOui, Air France, Métro ligne 14 ») |
-| **Après l'échec 4** | **Indice D** : le **nom d'un arrêt intermédiaire** du trajet |
-| **Essais 5 et 6** | Plus aucun nouvel indice |
-| **Après l'échec 6** | Révélation de la destination, score 0 |
+| **Après l'échec 4** | **Indice D** : le **nom des compagnies empruntées** (ex. « Métro ligne 12, Air France, TGV InOui ») |
+| **Après l'échec 5** | **Indice E** : une **destination intermédiaire** du trajet — jamais la destination, ni l'avant-dernier arrêt |
+| **Essai 6** | Dernier essai : victoire à 250 pts, sinon **score de proximité** (§1.3) |
+| **Après l'échec 6** | Révélation de la destination + score de proximité selon la distance du dernier clic |
 
 - **Maximum : 6 essais.** Une proposition est juste si la ville rattachée au clic est la ville de destination.
-- Après chaque mauvaise proposition, afficher la ville devinée sur la carte (épingle) pour que le joueur puisse s'orienter.
+- Après chaque clic, afficher la ville devinée sur la carte (épingle) **et la distance à vol d'oiseau entre la ville devinée et la destination secrète** (« à X km du but »), pour que le joueur puisse s'orienter.
 
 ### 1.3 Score
 
@@ -42,7 +43,7 @@
 | 4ᵉ | 550 |
 | 5ᵉ | 400 |
 | 6ᵉ | 250 |
-| Échec | 0 |
+| Échec (6ᵉ clic raté) | **Score de proximité** : arrondi de 250 × (1 − d/200) où d = distance entre la ville du dernier clic et la destination ; **0 si d > 200 km** |
 
 - Classement du jour trié par **score décroissant**, puis par **temps de résolution** (horodatage serveur) croissant pour départager les égalités.
 - Statistiques joueur : série de jours consécutifs joués (*streak*), moyenne de score, taux de réussite.
@@ -59,7 +60,7 @@ flowchart TD
   E -- "Non" --> G{"Nombre d'essais < 6 ?"}
   G -- "Oui" --> H["Déblocage de l'indice suivant"]
   H --> C
-  G -- "Non" --> I["Révélation de la destination, score 0"]
+  G -- "Non" --> I["Révélation de la destination, score de proximité (§1.3)"]
 ```
 
 ---
@@ -146,7 +147,7 @@ destination-mystere/
 │   │   ├── auth.ts
 │   │   ├── geo/
 │   │   │   ├── snap.ts         # Clic (lat/lng) → ville > 5000 hab la plus proche
-│   │   │   ├── grid-index.ts   # Index géohash pour un snap rapide
+│   │   │   ├── grid-index.ts   # Index geohash pour un snap rapide
 │   │   │   └── haversine.ts
 │   │   └── format/
 │   │       └── duration.ts     # Formatage des durées (7 h 42)
@@ -248,14 +249,14 @@ erDiagram
       "durationMin": 38,                 // indice B
       "from": "Reims",
       "to": "Paris-Est",
-      "intermediateStops": ["Château-Thierry"] // pour l'indice D
+      "intermediateStops": ["Château-Thierry"] // pour l'indice E
     }
     // ...
   ]
 }
 ```
 
-Chaque indice est une **projection** de cette structure : A = `modeDetail` de chaque segment ; B = + `durationMin` ; C = + `lineOrCarrier` ; D = un élément de `intermediateStops` d'un segment au choix. Un seul champ, `journey`, alimente toute la mécanique — simple à maintenir et à tester.
+Chaque indice est une **projection** de cette structure : A = `modeDetail` de chaque segment, ramené aux catégories **transports urbains / avion / train** ; B = modes de A + `durationMin` ; C = + `lineOrCarrier` ; D = **nom des compagnies empruntées** (affinement de `lineOrCarrier`) ; E = une **destination intermédiaire** du trajet, jamais la dernière ni l'avant-dernière étape. Un seul champ, `journey`, alimente toute la mécanique — simple à maintenir et à tester.
 
 ---
 
@@ -343,7 +344,7 @@ Le client ne doit **jamais** pouvoir deviner la destination par inspection du co
 **M2 — Génération du défi.** `daily-challenge.ts` (PRNG seedé), clients `sncf.ts` / `flights.ts`, `planner.ts`, route cron, fallback, modèle `DailyChallenge`.
 ✔ Critères : le cron crée un défi pour la date du jour avec `journey` complet et durée totale cohérente ; relancer deux fois donne le même duo de villes ; un échec API bascule sur le fallback.
 
-**M3 — Jeu solo.** Écran de jeu avec carte MapLibre, clic → snap → vérification serveur, déblocage des indices A→D, score, écran de fin avec tracé de l'itinéraire.
+**M3 — Jeu solo.** Écran de jeu avec carte MapLibre, clic → snap → vérification serveur, déblocage des indices A→E, distance au but après chaque clic, score et score de proximité, écran de fin avec tracé de l'itinéraire.
 ✔ Critères : impossible de trouver la destination dans la réponse réseau avant la fin ; la séquence d'indices respecte §1.2 ; tests de `hints.ts` et `scoring.ts`.
 
 **M4 — Multi-joueurs.** Auth, `GameSession` unique/joueur/jour, classement du jour, archives, streaks.
@@ -367,10 +368,13 @@ CONTEXTE DU JEU
 Chaque jour, le système génère l'itinéraire le plus rapide (transports en commun, train,
 avion uniquement) entre une ville française possédant une gare et une ville européenne.
 Le joueur voit la ville de départ et la durée totale, puis clique sur une carte pour
-deviner la destination ; son clic est rattaché à la ville de plus de 5 000 habitants la
-plus proche. Après chaque erreur, un indice se débloque : (A) modes de transport,
-(B) durées des segments, (C) lignes/compagnies, (D) un arrêt intermédiaire. 6 essais
-maximum ; score de 1000 (1er essai) à 250 (6e), 0 en cas d'échec.
+devine la destination ; son clic est rattaché à la ville de plus de 5 000 habitants la
+plus proche. La distance à la destination s'affiche après chaque clic. Après chaque
+erreur, un indice se débloque : (A) modes de transport (transports urbains / avion /
+train), (B) modes et durées des segments ensemble, (C) lignes/compagnies, (D) compagnies
+empruntées, (E) une destination intermédiaire (jamais la dernière ni l'avant-dernière
+étape). 6 essais maximum ; score de 1000 (1er essai) à 250 (6e) ; en cas d'échec au 6e,
+score de proximité selon la distance du dernier clic (0 au-delà de 200 km).
 
 RÈGLES NON NÉGOCIABLES
 1. Logique 100 % côté serveur : la destination et l'itinéraire complet ne sont JAMAIS

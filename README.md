@@ -4,12 +4,13 @@ Jeu quotidien multi-joueurs : chaque jour, un itinéraire en transports en commu
 
 | Essai manqué | Indice débloqué |
 | --- | --- |
-| après le 1ᵉʳ | **A** — modes de transport du trajet |
-| après le 2ᵉ | **B** — durées des segments |
+| après le 1ᵉʳ | **A** — modes de transport (transports urbains / avion / train) |
+| après le 2ᵉ | **B** — modes et durées des segments ensemble |
 | après le 3ᵉ | **C** — lignes et compagnies |
-| après le 4ᵉ | **D** — un arrêt intermédiaire |
+| après le 4ᵉ | **D** — compagnies empruntées |
+| après le 5ᵉ | **E** — une destination intermédiaire (jamais la dernière ni l'avant-dernière étape) |
 
-Score : 1000 / 850 / 700 / 550 / 400 / 250 points selon le numéro d'essai réussi ; échec = 0.
+Score : 1000 / 850 / 700 / 550 / 400 / 250 points selon le numéro d'essai réussi. La **distance à la destination s'affiche après chaque clic**. En cas d'échec au 6ᵉ essai : **score de proximité** — arrondi de 250 × (1 − d/200), où d est la distance du dernier clic au but, **0 au-delà de 200 km**.
 
 📖 **La spécification complète fait foi : [`docs/SPECIFICATION.md`](docs/SPECIFICATION.md)** (règles, modèle de données, sources, anti-triche, jalons M0–M5).
 
@@ -23,7 +24,7 @@ Score : 1000 / 850 / 700 / 550 / 400 / 250 points selon le numéro d'essai réus
 
 ## État d'avancement
 
-- ✅ **M0 — Socri** : configuration TypeScript stricte, Prisma, scripts de données
+- ✅ **M0 — Socle** : configuration TypeScript stricte, Prisma, scripts de données
 - ✅ **M1 — Géographie du jeu** : haversine, geohash (validé contre les ancres publiques), index spatial par geohash avec scan différentiel **exact** (300/300 clics identiques à la force brute, p95 < 0,3 ms), snap clic → ville
 - ⬜ **M2 — Génération quotidienne** : PRNG seedé par date, client SNCF/Navitia, estimation aéronautique par distance orthodromique (Amadeus Self-Service étant fermé aux nouveaux comptes depuis juillet 2026), planner, cron avec itinéraire de repli
 - ⬜ **M3 — Écran de jeu** : carte MapLibre, boucle de jeu, indices
@@ -68,13 +69,13 @@ Trois niveaux de test, du plus immédiat au plus intégré :
 
 ### 1. La maquette jouable (aucune installation)
 
-Une **démo interactive autonome** reproduit fidèlement l'écran de jeu : carte cliquable, snap vers la ville la plus proche, 6 essais, indices A→B→C→D dans l'ordre, score standard, puis révélation complète (destination, tableau des segments, tracé du trajet). Elle est disponible dans le canvas « Destination Mystère — démo jouable » de la conversation Vibe.
+Une **démo interactive autonome** reproduit fidèlement l'écran de jeu : carte cliquable, snap vers la ville la plus proche, distance au but après chaque clic, 6 essais, indices A→B→C→D→E dans l'ordre, score standard et score de proximité, puis révélation complète (destination, tableau des segments, tracé du trajet). Elle est disponible dans le canvas « Destination Mystère — démo jouable » de la conversation Vibe.
 
 > ⚠️ La maquette embarque un sous-ensemble de villes (≥ 25 000 hab.) et une carte dessinée en Canvas 2D pour rester autonome ; la vraie application (M3) utilisera MapLibre/OpenFreeMap et le seuil complet de 5 000 habitants.
 
 ### 2. Le fixture versionné — `data/fixtures/demo-journey.json`
 
-L'itinéraire de la maquette est aussi versionné ici au format `journey` de la spécification (§4) : 9 segments (rail, urban, air, correspondances), durée totale 5 h 25. Structure pivot : tous les indices (A, B, C, D) sont des projections de ce JSON, le serveur ne l'envoie **jamais** au client avant la fin de partie.
+Un itinéraire de démonstration est aussi versionné ici au format `journey` de la spécification (§4) : 9 segments (rail, urban, air, correspondances), durée totale 5 h 25. Structure pivot : tous les indices (A à E) sont des projections de ce JSON, le serveur ne l'envoie **jamais** au client avant la fin de partie.
 
 ### 3. Le chemin déterministe dans la vraie application (M2/M3)
 
@@ -92,7 +93,7 @@ C'est aussi la structure attendue pour l'**itinéraire de repli** du cron M2 : e
 npm test
 ```
 
-36 tests couvrent la configuration (scripts, strictité, anti-triche Prisma), le geohash (ancres publiques Wikipédia), l'haversine (distances de référence, point à azimut donné) et le snap (exactitude contre la force brute sur 300 clics, p95 < 2 ms). Le cluster de test autour de Reims documente la découverte M1 §11.5 : des communes de 5 000–10 000 hab. captent les clics autour des grandes villes.
+36 tests couvrent la configuration (scripts, strictité, anti-triche Prisma), le geohash (ancres publiques Wikipédia), le haversine (distances de référence, point à azimut donné) et le snap (exactitude contre la force brute sur 300 clics, p95 < 2 ms). Le cluster de test autour de Reims documente la découverte M1 §11.5 : des communes de 5 000–10 000 hab. captent les clics autour des grandes villes.
 
 ## Scripts npm
 
