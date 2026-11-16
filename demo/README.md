@@ -69,5 +69,7 @@ les gares TGV** sur un tronc TGV.
    la maquette autorise désormais des destinations en France (tirage
    2/5). Décider : mettre à jour la spécification ou contraindre le
    tirage.
-2. Fixture : `originCityId: "2964587"` n'existe pas dans GeoNames —
-   Reims = `2984114`.
+2. ✅ **Résolu en M3** : le fixture utilise l'identifiant GeoNames
+   correct de Reims (`2984114`) et le chargeur de fixture
+   (`src/server/challenge-store.ts`) prévoit un repli par nom de
+   ville si un identifiant manque en base.
