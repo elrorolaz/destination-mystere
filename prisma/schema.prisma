@@ -1,6 +1,11 @@
 // Destination Mystère — modèle de données (spécification §4).
-// Le champ pivot `journey` (JSON) contient l'itinéraire complet : tous les
+// Le champ pivot « journey » (JSON) contient l'itinéraire complet : tous les
 // indices sont des projections de cette structure (§4, « Contenu de journey »).
+//
+// M3 : GameSession accepte les parties « invité » (guestKey de cookie) tant
+// que les comptes n'existent pas (jalon M4). L'unicité d'une partie par
+// joueur et par jour (§7) est garantie par (userId, date) pour les comptes
+// et (guestKey, date) pour les invités.
 
 generator client {
   provider = "prisma-client-js"
@@ -21,7 +26,7 @@ model City {
   hasTrainStation Boolean @default(false)
   geohash         String // précision 6, pour l'index spatial du snap
 
-  originChallenges      DailyChallenge[] @relation("origin")
+  originChallenges       DailyChallenge[] @relation("origin")
   destinationChallenges DailyChallenge[] @relation("destination")
 
   @@index([country])
@@ -57,7 +62,8 @@ model User {
 
 model GameSession {
   id            String    @id @default(cuid())
-  userId        String
+  userId        String? // M4 : compte authentifié
+  guestKey      String? // M3 : invité (cookie httpOnly)
   challengeDate DateTime
   status        String // ACTIVE | WON | LOST
   attemptCount  Int       @default(0)
@@ -65,12 +71,13 @@ model GameSession {
   startedAt     DateTime  @default(now())
   finishedAt    DateTime?
 
-  user           User            @relation(fields: [userId], references: [id])
+  user           User?          @relation(fields: [userId], references: [id])
   dailyChallenge DailyChallenge @relation(fields: [challengeDate], references: [challengeDate])
   guesses        Guess[]
 
   // Anti-triche : une seule partie par joueur et par jour (§7).
   @@unique([userId, challengeDate])
+  @@unique([guestKey, challengeDate])
   @@index([challengeDate, status])
 }
 
@@ -90,11 +97,11 @@ model Guess {
 
 model UserStats {
   userId       String @id
-  currentStreak Int   @default(0)
-  bestStreak   Int   @default(0)
-  totalScore   Int   @default(0)
-  gamesPlayed  Int   @default(0)
-  gamesWon     Int   @default(0)
+  currentStreak Int    @default(0)
+  bestStreak   Int    @default(0)
+  totalScore   Int    @default(0)
+  gamesPlayed  Int    @default(0)
+  gamesWon     Int    @default(0)
 
   user User @relation(fields: [userId], references: [id])
 }

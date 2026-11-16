@@ -1,6 +1,6 @@
 // Segment et itinéraire — structure pivot du jeu (spécification §4).
-// Un seul champ `journey` alimente toute la mécanique : chaque indice est une
-// projection de cette structure. À enrichir au jalon M2 (planner, clients).
+// Un seul champ « journey » alimente toute la mécanique : chaque indice est
+// une projection de cette structure.
 
 export type TransportMode = "rail" | "air" | "urban" | "intercity_bus";
 
@@ -22,8 +22,17 @@ export interface JourneySegment {
   durationMin: number;
   from: string;
   to: string;
-  /** Arrêts desservis — source de l'indice D. */
+  /** Arrêts desservis — source de l'indice E. */
   intermediateStops?: string[];
+  /**
+   * Coordonnées [lat, lng] de l'extrémité de départ — optionnelles.
+   * Ajoutées par le planner (M2) ou le fixture de démonstration ; elles servent
+   * uniquement au tracé de fin de partie (M3) et ne modifient aucune projection
+   * des indices. C'est grâce à elles que le tracé suit les voies ferrées.
+   */
+  fromCoord?: [number, number];
+  /** Coordonnées [lat, lng] de l'extrémité d'arrivée — optionnelles. */
+  toCoord?: [number, number];
 }
 
 export interface Journey {

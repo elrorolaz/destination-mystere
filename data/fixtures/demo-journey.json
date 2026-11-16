@@ -1,6 +1,6 @@
 {
   "challengeDate": "2026-11-14",
-  "originCityId": "2964587",
+  "originCityId": "2984114",
   "destCityId": "2761369",
   "totalDurationMin": 325,
   "segments": [
@@ -11,7 +11,9 @@
       "lineOrCarrier": "TGV inOui",
       "durationMin": 46,
       "from": "Reims-Centre",
-      "to": "Paris-Est"
+      "to": "Paris-Est",
+      "fromCoord": [49.2637, 4.0316],
+      "toCoord": [48.8761, 2.359]
     },
     {
       "index": 2,
@@ -20,7 +22,9 @@
       "lineOrCarrier": "",
       "durationMin": 12,
       "from": "Paris-Est",
-      "to": "Gare de l'Est"
+      "to": "Gare de l'Est",
+      "fromCoord": [48.8761, 2.359],
+      "toCoord": [48.8761, 2.359]
     },
     {
       "index": 3,
@@ -29,7 +33,9 @@
       "lineOrCarrier": "Métro ligne 5",
       "durationMin": 4,
       "from": "Gare de l'Est",
-      "to": "Gare du Nord"
+      "to": "Gare du Nord",
+      "fromCoord": [48.8761, 2.359],
+      "toCoord": [48.8809, 2.3553]
     },
     {
       "index": 4,
@@ -38,7 +44,9 @@
       "lineOrCarrier": "",
       "durationMin": 5,
       "from": "Gare du Nord",
-      "to": "Gare du Nord (RER)"
+      "to": "Gare du Nord (RER)",
+      "fromCoord": [48.8809, 2.3553],
+      "toCoord": [48.8809, 2.3553]
     },
     {
       "index": 5,
@@ -48,7 +56,9 @@
       "durationMin": 34,
       "from": "Gare du Nord (RER)",
       "to": "Aéroport CDG 2",
-      "intermediateStops": ["Aulnay-sous-Bois"]
+      "intermediateStops": ["Aulnay-sous-Bois"],
+      "fromCoord": [48.8809, 2.3553],
+      "toCoord": [49.0034, 2.571]
     },
     {
       "index": 6,
@@ -57,7 +67,9 @@
       "lineOrCarrier": "",
       "durationMin": 75,
       "from": "Aéroport CDG 2",
-      "to": "Paris-CDG"
+      "to": "Paris-CDG",
+      "fromCoord": [49.0034, 2.571],
+      "toCoord": [49.0034, 2.571]
     },
     {
       "index": 7,
@@ -66,7 +78,9 @@
       "lineOrCarrier": "Air France",
       "durationMin": 110,
       "from": "Paris-CDG",
-      "to": "Vienne-Schwechat"
+      "to": "Vienne-Schwechat",
+      "fromCoord": [49.0034, 2.571],
+      "toCoord": [48.0663, 16.5626]
     },
     {
       "index": 8,
@@ -75,7 +89,9 @@
       "lineOrCarrier": "",
       "durationMin": 12,
       "from": "Vienne-Schwechat",
-      "to": "Flughafen Wien"
+      "to": "Flughafen Wien",
+      "fromCoord": [48.0663, 16.5626],
+      "toCoord": [48.0663, 16.5626]
     },
     {
       "index": 9,
@@ -85,7 +101,9 @@
       "durationMin": 27,
       "from": "Flughafen Wien",
       "to": "Wien Mitte",
-      "intermediateStops": ["Wien Praterstern"]
+      "intermediateStops": ["Wien Praterstern"],
+      "fromCoord": [48.0663, 16.5626],
+      "toCoord": [48.2064, 16.3867]
     }
   ]
 }
