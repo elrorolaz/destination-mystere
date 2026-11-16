@@ -49,10 +49,10 @@ async function seedFixtureChallenge(date: Date): Promise<ChallengeWithCities | n
   if (!origin || !dest) {
     console.error(
       "DEV_FIXTURE : villes du fixture introuvables en base (originCityId=" +
-        fixture.originCityId +
-        ", destCityId=" +
-        fixture.destCityId +
-        "). Lancer npm run prepare:cities && npm run data:import.",
+      fixture.originCityId +
+      ", destCityId=" +
+      fixture.destCityId +
+      "). Lancer npm run prepare:cities && npm run data:import.",
     );
     return null;
   }
