@@ -1,12 +1,495 @@
+/* Destination Mystère — thème nuit (M3).
+   Palette de l'identité visuelle : nuit, encre, or, vert, brume, écume. */
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
+  --dm-night: #0b1023;
+  --dm-night-2: #10193a;
+  --dm-ink: #1a2447;
+  --dm-ink-2: #24305c;
+  --dm-gold: #e8b44a;
+  --dm-gold-strong: #f5c96b;
+  --dm-gold-soft: rgba(232, 180, 74, 0.16);
+  --dm-green: #3fb984;
+  --dm-green-soft: rgba(63, 185, 132, 0.18);
+  --dm-red: #e4574f;
+  --dm-red-soft: rgba(228, 87, 79, 0.18);
+  --dm-mist: #a9b4d0;
+  --dm-foam: #e6ecff;
+  --dm-border: rgba(169, 180, 208, 0.16);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 html,
 body {
-  max-width: 44rem;
-  margin: 0 auto;
-  padding: 2rem 1.25rem;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--dm-night);
+  color: var(--dm-foam);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   line-height: 1.6;
+}
+
+a {
+  color: var(--dm-gold);
+}
+
+/* ---------- Accueil ---------- */
+
+.dm-home {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 4rem 1.25rem 2rem;
+}
+
+.dm-eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--dm-gold);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dm-title {
+  margin: 0;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  line-height: 1.15;
+}
+
+.dm-title span {
+  color: var(--dm-gold);
+}
+
+.dm-lede {
+  max-width: 42rem;
+  margin: 1rem 0 2rem;
+  color: var(--dm-mist);
+  font-size: 1.05rem;
+}
+
+.dm-rules {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: 3rem 0;
+}
+
+.dm-rule {
+  background: var(--dm-night-2);
+  border: 1px solid var(--dm-border);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+}
+
+.dm-rule-icon {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.dm-rule h2 {
+  margin: 0.35rem 0 0.35rem;
+  font-size: 1.05rem;
+  color: var(--dm-gold-strong);
+}
+
+.dm-rule p:last-child {
+  margin: 0;
+  color: var(--dm-mist);
+  font-size: 0.92rem;
+}
+
+.dm-foot {
+  border-top: 1px solid var(--dm-border);
+  padding-top: 1rem;
+  color: var(--dm-mist);
+  font-size: 0.85rem;
+}
+
+/* ---------- Écran de jeu ---------- */
+
+.dm-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1.1rem;
+  background: rgba(11, 16, 35, 0.92);
+  border-bottom: 1px solid rgba(232, 180, 74, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.dm-logo {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--dm-foam);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dm-logo span {
+  color: var(--dm-gold);
+}
+
+.dm-challenge-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem 1.4rem;
+  padding: 0.65rem 1.1rem;
+  background: var(--dm-night-2);
+  border-bottom: 1px solid var(--dm-border);
+  font-size: 0.92rem;
+}
+
+.dm-challenge-bar strong {
+  color: var(--dm-gold-strong);
+}
+
+.dm-attempts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dm-attempt-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid var(--dm-mist);
+}
+
+.dm-attempt-dot.used {
+  border-color: var(--dm-gold);
+  background: var(--dm-gold-soft);
+}
+
+.dm-attempt-dot.last {
+  border-color: var(--dm-red);
+}
+
+.dm-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 1rem;
+  padding: 1rem;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .dm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dm-map {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--dm-border);
+  min-height: 420px;
+}
+
+.dm-map .maplibregl-canvas {
+  outline: none;
+}
+
+.dm-map-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dm-night);
+  color: var(--dm-mist);
+  z-index: 5;
+  padding: 2rem;
+  text-align: center;
+}
+
+.dm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.dm-card {
+  background: var(--dm-night-2);
+  border: 1px solid var(--dm-border);
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+}
+
+.dm-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dm-mist);
+}
+
+.dm-hint {
+  border-left: 3px solid var(--dm-ink-2);
+  padding: 0.5rem 0 0.5rem 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.dm-hint:last-child {
+  margin-bottom: 0;
+}
+
+.dm-hint.open {
+  border-left-color: var(--dm-gold);
+}
+
+.dm-hint-title {
+  margin: 0 0 0.15rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.dm-hint.open .dm-hint-title {
+  color: var(--dm-gold-strong);
+}
+
+.dm-hint-body {
+  margin: 0;
+  color: var(--dm-foam);
+  font-size: 0.92rem;
+}
+
+.dm-hint.locked {
+  opacity: 0.45;
+}
+
+.dm-hint.locked .dm-hint-body {
+  color: var(--dm-mist);
+  font-style: italic;
+}
+
+/* ---------- Boutons ---------- */
+
+.dm-btn {
+  display: inline-block;
+  border-radius: 10px;
+  border: 1px solid var(--dm-border);
+  background: var(--dm-ink);
+  color: var(--dm-foam);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.6rem 1.1rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dm-btn:hover {
+  border-color: var(--dm-gold);
+}
+
+.dm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dm-btn-primary {
+  background: linear-gradient(135deg, #f0bd55, #d9a23a);
+  border-color: transparent;
+  color: #231a05;
+}
+
+/* ---------- Fin de partie ---------- */
+
+.dm-end-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 10, 22, 0.78);
+  backdrop-filter: blur(3px);
+  padding: 1rem;
+}
+
+.dm-end-card {
+  width: min(560px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  background: var(--dm-night-2);
+  border: 1px solid rgba(232, 180, 74, 0.35);
+  border-radius: 16px;
+  padding: 1.6rem 1.8rem;
+}
+
+.dm-end-card h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.5rem;
+}
+
+.dm-end-dest {
+  color: var(--dm-gold-strong);
+  font-weight: 800;
+}
+
+.dm-end-score {
+  color: var(--dm-mist);
+  margin: 0.3rem 0 1rem;
+}
+
+.dm-squares {
+  letter-spacing: 3px;
+  font-size: 1.2rem;
+  margin: 0 0 1.2rem;
+}
+
+.dm-seg-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4rem 0 1rem;
+  font-size: 0.9rem;
+}
+
+.dm-seg-row td {
+  border-top: 1px solid var(--dm-border);
+  padding: 0.45rem 0.4rem;
+  vertical-align: top;
+}
+
+.dm-seg-emoji {
+  text-align: center;
+  width: 2rem;
+}
+
+.dm-seg-kind {
+  color: var(--dm-mist);
+}
+
+.dm-seg-note {
+  color: var(--dm-mist);
+  font-size: 0.82rem;
+  margin: 0 0 1.1rem;
+}
+
+.dm-share {
+  width: 100%;
+  margin-bottom: 0.6rem;
+}
+
+/* ---------- Épingles de carte (contenu dans un enfant : maplibre réserve
+   l'élément racine du marker pour son propre transform) ---------- */
+
+.dm-origin-pin-wrap {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.dm-origin-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--dm-gold);
+  animation: dm-pulse 2.4s ease-out infinite;
+}
+
+.dm-origin-core {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--dm-night);
+  border: 2px solid var(--dm-gold);
+}
+
+@keyframes dm-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(232, 180, 74, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(232, 180, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 180, 74, 0);
+  }
+}
+
+.dm-dest-pin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--dm-green);
+  border: 3px solid #0b1023;
+  box-shadow: 0 0 0 4px rgba(63, 185, 132, 0.4);
+}
+
+.dm-guess-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--dm-night);
+  border: 2px solid var(--dm-red);
+  color: var(--dm-foam);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dm-guess-pin.correct {
+  border-color: var(--dm-green);
+  background: var(--dm-green-soft);
+}
+
+/* ---------- Contrôles MapLibre, thème nuit ---------- */
+
+.maplibregl-ctrl-attrib {
+  background: rgba(11, 16, 35, 0.75) !important;
+  color: var(--dm-mist);
+  font-size: 0.7rem;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--dm-mist);
+}
+
+.maplibregl-ctrl-group {
+  background: var(--dm-ink) !important;
+  border: 1px solid var(--dm-border) !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--dm-border) !important;
+}
+
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+
+.maplibregl-popup-content {
+  background: var(--dm-ink) !important;
+  color: var(--dm-foam);
+  font-size: 0.85rem;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: var(--dm-ink) !important;
+  border-bottom-color: var(--dm-ink) !important;
 }
