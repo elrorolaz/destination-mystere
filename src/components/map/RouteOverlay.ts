@@ -109,3 +109,19 @@ export function addRouteOverlay(map: MLMap, traces: SegmentTrace[]): void {
     paint: { "text-color": "#F5C96B", "text-halo-color": "#0B1023", "text-halo-width": 1.5 },
   } as unknown as LayerSpecification);
 }
+
+const OVERLAY_LAYER_IDS: string[] = GROUPS.map((g): string => g.id).concat(["route-air-icon"]);
+const OVERLAY_SOURCE_IDS: string[] = GROUPS.map((g): string => g.id + "-src").concat(["route-air-mid-src"]);
+
+/**
+ * Supprime toutes les couches de tracé (nouvelle partie après un reroll :
+ * l'itinéraire précédent ne doit plus polluer la carte).
+ */
+export function removeRouteOverlay(map: MLMap): void {
+  for (const id of OVERLAY_LAYER_IDS) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  for (const id of OVERLAY_SOURCE_IDS) {
+    if (map.getSource(id)) map.removeSource(id);
+  }
+}

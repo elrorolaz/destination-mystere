@@ -1,4 +1,4 @@
-// Projection des indices A → E depuis le journey du fixture (§1.2, §4) — M3.
+// Projection des indices A → D depuis le journey du fixture (§1.2, §4) — M3.
 // « Ne pas générer les indices à la main » : tout est déduit de la structure.
 
 import { describe, expect, it } from "vitest";
@@ -114,20 +114,18 @@ describe("buildHints (fixture Reims → Vienne)", () => {
     );
   });
 
-  it("indice D : compagnies dédoublonnées", () => {
-    expect(buildHints(journey)[3]!.body).toBe(
-      "inOui (SNCF)  ·  RATP  ·  Air France  ·  ÖBB",
-    );
-  });
-
-  it("indice E : une étape desservie, jamais dans le dernier segment", () => {
+  it("indice D : une étape desservie, jamais dans le dernier segment", () => {
     // Wien Praterstern appartient au segment 9 (dernier) : exclu.
-    expect(buildHints(journey)[4]!.body).toBe(
+    expect(buildHints(journey)[3]!.body).toBe(
       "Le trajet s'arrête à Aulnay-sous-Bois",
     );
   });
 
-  it("indice E dégradé : message neutre sans arrêts intermédiaires", () => {
+  it("quatre indices au total : A, B, C, D (plus d'ancien indice « compagnies » ni « E »", () => {
+    expect(buildHints(journey).map((h) => h.key)).toEqual(["A", "B", "C", "D"]);
+  });
+
+  it("indice D dégradé : message neutre sans arrêts intermédiaires", () => {
     const bare: Journey = {
       totalDurationMin: 30,
       segments: [
@@ -142,7 +140,7 @@ describe("buildHints (fixture Reims → Vienne)", () => {
         },
       ],
     };
-    expect(buildHints(bare)[4]!.body).toBe(
+    expect(buildHints(bare)[3]!.body).toBe(
       "Tous les arrêts intermédiaires révéleraient la destination",
     );
   });
@@ -153,14 +151,25 @@ describe("buildHints (fixture Reims → Vienne)", () => {
     expect(one.map((h) => h.key)).toEqual(["A"]);
   });
 
-  it("unlockedHints : plafonne à E même au-delà de cinq échecs", () => {
+  it("unlockedHints : plafonne à D — les essais 5 et 6 ne débloquent rien de plus", () => {
     expect(unlockedHints(journey, 3).map((h) => h.key)).toEqual(["A", "B", "C"]);
+    expect(unlockedHints(journey, 4).map((h) => h.key)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+    ]);
+    expect(unlockedHints(journey, 5).map((h) => h.key)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+    ]);
     expect(unlockedHints(journey, 6).map((h) => h.key)).toEqual([
       "A",
       "B",
       "C",
       "D",
-      "E",
     ]);
   });
 });

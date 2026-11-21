@@ -19,6 +19,11 @@ export default function GameScreen() {
   const [traces, setTraces] = useState<SegmentTrace[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Écran de fin masqué par la croix ✕ pour voir l'itinéraire sur la carte.
+  const [endHidden, setEndHidden] = useState(false);
+  // Incrémenté à chaque reroll : la carte remet ses épingles/tracés à zéro.
+  const [resetKey, setResetKey] = useState(0);
+  const isDev = process.env.NODE_ENV === "development";
 
   const loadTraces = useCallback(async () => {
     try {
@@ -45,6 +50,7 @@ export default function GameScreen() {
         }
         const challenge = json as PublicChallengeState;
         setState(challenge);
+        setEndHidden(false);
         if (challenge.status !== "ACTIVE") {
           void loadTraces();
         }
@@ -100,6 +106,39 @@ export default function GameScreen() {
     }
   }, []);
 
+  // 🎲 Nouvel itinéraire de test (développement uniquement, DEV_FIXTURE=random) :
+  // le serveur régénère le défi du jour, puis on recharge l'état public.
+  const handleReroll = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/dev/reroll", { method: "POST" });
+      if (!res.ok) {
+        const json: unknown = await res.json().catch(() => null);
+        const message =
+          json && typeof json === "object" && "error" in json
+            ? String((json as { error: unknown }).error)
+            : "Reroll refusé (DEV_FIXTURE=random requis).";
+        setError(message);
+        setTimeout(() => setError(null), 2500);
+        return;
+      }
+      const challengeRes = await fetch("/api/challenge");
+      if (challengeRes.ok) {
+        const challenge = (await challengeRes.json()) as PublicChallengeState;
+        setState(challenge);
+        setTraces([]);
+        setEndHidden(false);
+        setResetKey((k) => k + 1);
+      }
+    } catch {
+      setError("Connexion impossible.");
+      setTimeout(() => setError(null), 2500);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy]);
+
   if (!state) {
     return (
       <div className="dm-wrap">
@@ -151,6 +190,17 @@ export default function GameScreen() {
             </>
           )}
         </span>
+        {isDev ? (
+          <button
+            className="dm-btn dm-reroll"
+            type="button"
+            onClick={handleReroll}
+            disabled={busy}
+            title="Générer un nouvel itinéraire de test (DEV_FIXTURE=random)"
+          >
+            🎲 Nouvel itinéraire
+          </button>
+        ) : null}
       </section>
 
       <div className="dm-grid">
@@ -161,6 +211,7 @@ export default function GameScreen() {
           active={state.status === "ACTIVE" && !busy}
           traces={traces}
           onGuess={handleGuess}
+          resetKey={resetKey}
         />
         <aside className="dm-panel">
           {error ? (
@@ -173,8 +224,24 @@ export default function GameScreen() {
         </aside>
       </div>
 
-      {state.status !== "ACTIVE" ? (
-        <EndScreen state={state} traces={traces} onReplay={handleReplay} />
+      {state.status !== "ACTIVE" && !endHidden ? (
+        <EndScreen
+          state={state}
+          traces={traces}
+          onReplay={handleReplay}
+          onClose={() => setEndHidden(true)}
+          onReroll={isDev ? handleReroll : undefined}
+        />
+      ) : null}
+
+      {state.status !== "ACTIVE" && endHidden ? (
+        <button
+          className="dm-end-reopen"
+          type="button"
+          onClick={() => setEndHidden(false)}
+        >
+          🏁 Voir le résultat
+        </button>
       ) : null}
     </div>
   );

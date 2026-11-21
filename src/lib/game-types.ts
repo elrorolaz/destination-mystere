@@ -24,7 +24,7 @@ export interface PublicGuess {
 }
 
 export interface PublicHint {
-  key: "A" | "B" | "C" | "D" | "E";
+  key: "A" | "B" | "C" | "D";
   title: string;
   body: string;
 }

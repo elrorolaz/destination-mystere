@@ -27,7 +27,7 @@ export interface SnapResult {
   distanceKm: number;
 }
 
-/** Aéroport issu d'OpenFlights (filtré Europe). */
+/** Aéroport issu d'OpenFlights (filtré Europe, internationaux uniquement). */
 export interface AirportRecord extends GeoPoint {
   id: string;
   name: string;
@@ -35,6 +35,14 @@ export interface AirportRecord extends GeoPoint {
   city: string;
   /** Nom complet du pays (convention OpenFlights, pas un code ISO). */
   country: string;
+  /** Code pays ISO 2 lettres, ex. "FR" (via countries.dat). */
+  countryCode?: string;
   /** Code IATA à 3 lettres, ex. "CDG". */
   iata: string;
+  /** Type OpenFlights : « large_airport » = aéroport international retenu. */
+  type?: string;
+  /** Population de la plus grande ville à ≤ 45 km (0 si inconnu) : « majeur ». */
+  hubPopulation?: number;
+  /** Nom de cette plus grande ville à ≤ 45 km (ex. « Paris » pour CDG). */
+  hubCity?: string;
 }

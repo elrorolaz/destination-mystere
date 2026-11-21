@@ -1,7 +1,10 @@
-// Défi du jour : lecture en base, et chargement du fixture de démonstration
-// quand aucun défi n'existe et que DEV_FIXTURE=true (chemin déterministe
-// décrit au README, § « Premier test »). La génération quotidienne réelle
-// arrive avec M2 (cron + PRNG + clients SNCF/vols).
+// Défi du jour : lecture en base, et chargement d'un itinéraire de test
+// quand aucun défi n'existe et que DEV_FIXTURE est actif :
+//   - DEV_FIXTURE=true   → fixture figé data/fixtures/demo-journey.json
+//                          (chemin déterministe décrit au README, § « Premier test ») ;
+//   - DEV_FIXTURE=random → itinéraire aléatoire (bouton 🎲 /api/dev/reroll pour
+//                          en changer à volonté pendant les tests).
+// La génération quotidienne réelle arrive avec M2 (cron + PRNG + clients SNCF/vols).
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -9,6 +12,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "../lib/db.ts";
 import { challengeDateFromKey, parisDateKey } from "../lib/paris-date.ts";
 import type { DailyJourney, Journey } from "./routing/types.ts";
+import { pickRandomChallenge } from "./dev-journey.ts";
 
 export type ChallengeWithCities = Prisma.DailyChallengeGetPayload<{
   include: { originCity: true; destinationCity: true };
@@ -22,7 +26,102 @@ export async function getTodayChallenge(): Promise<ChallengeWithCities | null> {
     include: { originCity: true, destinationCity: true },
   });
   if (existing) return existing;
-  if (process.env.DEV_FIXTURE !== "true") return null;
+  const mode = devFixtureMode();
+  if (mode === "random") return seedRandomChallenge(date);
+  if (mode === "fixed") return seedFixtureChallenge(date);
+  return null;
+}
+
+export type DevFixtureMode = "fixed" | "random" | null;
+
+/** Mode fixture de développement, d'après DEV_FIXTURE. */
+export function devFixtureMode(): DevFixtureMode {
+  const v = process.env.DEV_FIXTURE;
+  if (v === "true") return "fixed";
+  if (v === "random") return "random";
+  return null;
+}
+
+/**
+ * Reroll (DEV_FIXTURE=random) : régénère un itinéraire aléatoire pour
+ * aujourd'hui, remplace le défi du jour et efface les parties du jour
+ * (propositions comprises) pour pouvoir rejouer le nouvel itinéraire.
+ */
+export async function rerollTodayChallenge(): Promise<ChallengeWithCities | null> {
+  const date = challengeDateFromKey(parisDateKey());
+  const pick = await pickRandomChallenge();
+  if (!pick) {
+    console.error(
+      "DEV_FIXTURE=random : aucune paire origine/destination disponible (villes en base ?).",
+    );
+    return null;
+  }
+  const journeyPayload = pick.journey as unknown as Prisma.InputJsonValue;
+  const data = {
+    originCityId: pick.originCityId,
+    destCityId: pick.destCityId,
+    journey: journeyPayload,
+    totalDurationMin: pick.journey.totalDurationMin,
+  };
+
+  const sessions = await db.gameSession.findMany({
+    where: { challengeDate: date },
+    select: { id: true },
+  });
+  if (sessions.length > 0) {
+    await db.guess.deleteMany({
+      where: { sessionId: { in: sessions.map((s) => s.id) } },
+    });
+  }
+  await db.gameSession.deleteMany({ where: { challengeDate: date } });
+
+  await db.dailyChallenge.upsert({
+    where: { challengeDate: date },
+    create: { challengeDate: date, ...data },
+    update: data,
+  });
+
+  return db.dailyChallenge.findUnique({
+    where: { challengeDate: date },
+    include: { originCity: true, destinationCity: true },
+  });
+}
+
+/** Charge un itinéraire aléatoire en défi du jour (DEV_FIXTURE=random). */
+async function seedRandomChallenge(date: Date): Promise<ChallengeWithCities | null> {
+  const pick = await pickRandomChallenge();
+  if (!pick) {
+    console.error(
+      "DEV_FIXTURE=random : génération impossible (villes en base ? lancer npm run prepare:data && npm run data:import).",
+    );
+    return null;
+  }
+  const journeyPayload = pick.journey as unknown as Prisma.InputJsonValue;
+  await db.dailyChallenge.upsert({
+    where: { challengeDate: date },
+    create: {
+      challengeDate: date,
+      originCityId: pick.originCityId,
+      destCityId: pick.destCityId,
+      journey: journeyPayload,
+      totalDurationMin: pick.journey.totalDurationMin,
+    },
+    update: {},
+  });
+  return db.dailyChallenge.findUnique({
+    where: { challengeDate: date },
+    include: { originCity: true, destinationCity: true },
+  });
+}
+
+/**
+ * Repli du cron M2 (spécification §6.5) : charge le fixture figé
+ * data/fixtures/demo-journey.json comme défi du jour quand la génération
+ * réelle échoue (API indisponible) — plutôt que de laisser le jour sans défi.
+ */
+export async function fallbackToFixtureChallenge(
+  date: Date,
+): Promise<ChallengeWithCities | null> {
   return seedFixtureChallenge(date);
 }
 

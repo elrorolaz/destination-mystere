@@ -15,6 +15,7 @@ import { extractZip } from "./lib/zip.ts";
 import { downloadBytes, downloadText } from "./lib/download.ts";
 import { parseCsv } from "./lib/csv.ts";
 import { EUROPE_COUNTRY_CODES, isInEuropeBBox } from "./lib/europe.ts";
+import { groupArrondissements } from "./lib/arrondissements.ts";
 import { haversineKm } from "../src/lib/geo/haversine.ts";
 import { encodeGeohash } from "../src/lib/geo/geohash.ts";
 import type { CityRecord } from "../src/lib/geo/types.ts";
@@ -35,9 +36,11 @@ interface RawCity {
   lat: number;
   lng: number;
   population: number;
+  /** Code feature GeoNames (colonne 7) : « PPLX » = section de ville (arrondissement). */
+  featureCode?: string;
 }
 
-/** TSV GeoNames : colonnes 0 id, 1 name, 4 lat, 5 lng, 8 country, 14 population. */
+/** TSV GeoNames : colonnes 0 id, 1 name, 4 lat, 5 lng, 7 feature code, 8 country, 14 population. */
 function parseGeoNames(tsv: string): RawCity[] {
   const cities: RawCity[] = [];
   for (const line of tsv.split("\n")) {
@@ -47,12 +50,13 @@ function parseGeoNames(tsv: string): RawCity[] {
     const name = cols[1];
     const lat = Number(cols[4]);
     const lng = Number(cols[5]);
+    const featureCode = cols[7] ?? "";
     const country = cols[8];
     const population = Number(cols[14]);
     if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
     if (!Number.isFinite(population) || population <= 0) continue;
     if (!isInEuropeBBox(lat, lng)) continue;
-    cities.push({ id, name, country, lat, lng, population });
+    cities.push({ id, name, country, lat, lng, population, featureCode });
   }
   return cities;
 }
@@ -112,7 +116,12 @@ async function main() {
   const tsv = files.get(tsvEntry)?.toString("utf8") ?? "";
   console.log(`Archive GeoNames : ${(zipBytes.length / 1_048_576).toFixed(1)} Mo`);
 
-  const rawCities = parseGeoNames(tsv);
+  const parsed = parseGeoNames(tsv);
+  const sections = parsed.filter((c) => c.featureCode === "PPLX" || /arrondissement/i.test(c.name));
+  const rawCities = groupArrondissements(parsed);
+  console.log(
+    `🗺️  ${sections.length} sections de ville (arrondissements) regroupées dans leur ville parente`,
+  );
 
   const stations = await loadSncfStations();
 

@@ -10,7 +10,7 @@ import maplibregl from "maplibre-gl";
 import type { GeoJSONSource, LayerSpecification, Map as MLMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { CityMapPoint, PublicCityInfo, PublicGuess, SegmentTrace } from "@/lib/game-types";
-import { addRouteOverlay } from "./RouteOverlay";
+import { addRouteOverlay, removeRouteOverlay } from "./RouteOverlay";
 import { createGuessMarker } from "./GuessPin";
 
 const STYLE_URL =
@@ -23,6 +23,11 @@ export interface GameMapProps {
   active: boolean;
   traces: SegmentTrace[];
   onGuess?: (lat: number, lng: number) => void;
+  /**
+   * Incrémenté à chaque nouvelle partie (reroll 🎲) : la carte est remise à
+   * zéro (épingles de propositions, épingle destination, tracés, origine).
+   */
+  resetKey: number;
 }
 
 /* ---------- Thème nuit : surcouche sombre par-dessus le style de base ---------- */
@@ -43,11 +48,22 @@ function applyNightTheme(map: MLMap): void {
       if (type === "background") {
         map.setPaintProperty(id, "background-color", "#0B1023");
       } else if (type === "fill") {
+        // Toutes les couches de remplissage passent en nuit : l'eau, les
+        // bâtiments, mais aussi landcover/landuse/park qui sinon dessinent
+        // des formes claires par-dessus le fond.
         if (sourceLayer === "water") {
           map.setPaintProperty(id, "fill-color", "#101C3A");
         } else if (sourceLayer === "building") {
           map.setPaintProperty(id, "fill-color", "#131D40");
+        } else {
+          map.setPaintProperty(id, "fill-color", "#0D1730");
         }
+      } else if (type === "line") {
+        // Routes, frontières, côtes : discrétion — traits fins et sombres.
+        map.setPaintProperty(id, "line-color", "#1E2A4D");
+        map.setPaintProperty(id, "line-opacity", 0.55);
+      } else if (type === "hillshade") {
+        map.setLayoutProperty(id, "visibility", "none");
       } else if (type === "symbol") {
         // Les labels de lieux du style de base sont masqués : la couche
         // « constellation » affiche ses propres noms de villes.
@@ -202,9 +218,36 @@ export default function GameMap(props: GameMapProps) {
   clickRef.current = props;
   const [loadTick, setLoadTick] = useState(0);
   const originMarkerRef = useRef<Marker | null>(null);
+  const originNameRef = useRef<string | null>(null);
   const destMarkerRef = useRef<Marker | null>(null);
   const guessMarkersRef = useRef<Marker[]>([]);
   const guessCountRef = useRef(-1);
+  const lastResetKeyRef = useRef(0);
+
+  // Nouvelle partie (reroll) : on efface tout ce qui appartient à l'ancienne —
+  // épingle destination, épingles de propositions, tracés d'itinéraire et
+  // épingle d'origine (recréée ensuite avec la nouvelle ville de départ).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || loadTick === 0) return;
+    if (props.resetKey === lastResetKeyRef.current) return;
+    lastResetKeyRef.current = props.resetKey;
+    if (destMarkerRef.current) {
+      destMarkerRef.current.remove();
+      destMarkerRef.current = null;
+    }
+    for (const marker of guessMarkersRef.current) {
+      marker.remove();
+    }
+    guessMarkersRef.current = [];
+    guessCountRef.current = -1;
+    removeRouteOverlay(map);
+    if (originMarkerRef.current) {
+      originMarkerRef.current.remove();
+      originMarkerRef.current = null;
+      originNameRef.current = null;
+    }
+  }, [props.resetKey, loadTick]);
 
   // Initialisation : une seule instance de carte, réinstanciée proprement
   // par le nettoyage (double montage en mode strict couvert par loadTick).
@@ -267,11 +310,17 @@ export default function GameMap(props: GameMapProps) {
     map.getCanvas().style.cursor = props.active ? "crosshair" : "";
   }, [props.active, loadTick]);
 
-  // Épingle du point de départ (or, pulsation).
+  // Épingle du point de départ (or, pulsation) — recréée si l'origine change.
   useEffect(() => {
     const map = mapRef.current;
     const origin = props.origin;
-    if (!map || loadTick === 0 || !origin || originMarkerRef.current) return;
+    if (!map || loadTick === 0 || !origin) return;
+    if (originMarkerRef.current && originNameRef.current === origin.name) return;
+    if (originMarkerRef.current) {
+      originMarkerRef.current.remove();
+      originMarkerRef.current = null;
+    }
+    originNameRef.current = origin.name;
     const wrap = document.createElement("div");
     wrap.className = "dm-origin-pin-wrap";
     wrap.title = "Départ : " + origin.name;
@@ -286,11 +335,20 @@ export default function GameMap(props: GameMapProps) {
       .addTo(map);
   }, [props.origin, loadTick]);
 
-  // Épingle de la destination (vert) : n'apparaît qu'en fin de partie.
+  // Épingle de la destination (vert) : n'apparaît qu'en fin de partie et
+  // disparaît si la partie est remise à zéro (reroll).
   useEffect(() => {
     const map = mapRef.current;
     const dest = props.destination;
-    if (!map || loadTick === 0 || !dest || destMarkerRef.current) return;
+    if (!map || loadTick === 0) return;
+    if (!dest) {
+      if (destMarkerRef.current) {
+        destMarkerRef.current.remove();
+        destMarkerRef.current = null;
+      }
+      return;
+    }
+    if (destMarkerRef.current) return;
     const el = document.createElement("div");
     el.className = "dm-dest-pin";
     el.title = "Destination : " + dest.name;

@@ -18,6 +18,8 @@
     "prepare:airports": "tsx scripts/prepare-airports.ts",
     "prepare:data": "tsx scripts/prepare-cities.ts && tsx scripts/prepare-airports.ts",
     "data:import": "tsx scripts/import-db.ts",
+    "challenge:generate": "tsx scripts/generate-daily.ts",
+    "check:itinerary": "tsx scripts/check-itinerary.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
@@ -26,7 +28,7 @@
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "maplibre-gl": "^5.0.0",
-    "next": "^15.0.0",
+    "next": "^16.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -40,6 +42,13 @@
     "prisma": "^6.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.6.0",
-    "vitest": "^3.0.0"
+    "vitest": "^5.1.1"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.12.0": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true,
+    "prisma@6.12.0": true
   }
 }

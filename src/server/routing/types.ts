@@ -33,6 +33,19 @@ export interface JourneySegment {
   fromCoord?: [number, number];
   /** Coordonnées [lat, lng] de l'extrémité d'arrivée — optionnelles. */
   toCoord?: [number, number];
+  /**
+   * Horaires réels du segment (ISO 8601 Z) — optionnels, ajoutés par le
+   * planner (M2). Ils servent UNIQUEMENT à la vérification : chaque leg est
+   * re-joué auprès du routeur à SON horaire de départ, pas à celui du trajet.
+   */
+  startTime?: string;
+  endTime?: string;
+  /**
+   * Leg estimé et non rejouable tel quel contre le GTFS (ex. navette
+   * aéroport quand le réseau ne dessert pas l'aérogare) — la vérification
+   * le contrôle par sa chaîne (arrivée à l'aéroport) plutôt que par GTFS.
+   */
+  estimated?: boolean;
 }
 
 export interface Journey {

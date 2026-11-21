@@ -96,5 +96,7 @@ describe("buildPublicState — anti-triche", () => {
     expect(state.guesses[0]!.distanceKm).toBeGreaterThan(900);
     expect(state.journey).not.toBeNull();
     expect(state.journey?.totalDurationMin).toBe(325);
+    // Six échecs → indices A à D uniquement (les essais 5 et 6 n'en ajoutent pas).
+    expect(state.hints.map((h) => h.key)).toEqual(["A", "B", "C", "D"]);
   });
 });

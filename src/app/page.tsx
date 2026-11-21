@@ -9,8 +9,8 @@ const RULES = [
   },
   {
     icon: "💡",
-    title: "Indices A → E",
-    body: "Chaque essai manqué débloque un indice : modes de transport, durées, lignes, compagnies, étape.",
+    title: "Indices A → D",
+    body: "Chaque essai manqué débloque un indice : modes de transport, durées, lignes, puis une étape intermédiaire. Les deux derniers essais se jouent sans indice.",
   },
   {
     icon: "🏆",

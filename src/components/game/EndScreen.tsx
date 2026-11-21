@@ -19,10 +19,16 @@ export default function EndScreen({
   state,
   traces,
   onReplay,
+  onClose,
+  onReroll,
 }: {
   state: PublicChallengeState;
   traces: SegmentTrace[];
   onReplay: () => void;
+  /** Croix ✕ : masque l'écran pour voir l'itinéraire tracé sur la carte. */
+  onClose: () => void;
+  /** 🎲 Nouvel itinéraire de test (développement uniquement). */
+  onReroll?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const won = state.status === "WON";
@@ -52,6 +58,15 @@ export default function EndScreen({
   return (
     <div className="dm-end-overlay" role="dialog" aria-modal="true">
       <div className="dm-end-card">
+        <button
+          className="dm-end-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Fermer l'écran de résultat et voir l'itinéraire sur la carte"
+          title="Voir l'itinéraire sur la carte"
+        >
+          ✕
+        </button>
         <h2>{won ? "🎉 Destination trouvée !" : "😵 C'était…"}</h2>
         <p className="dm-end-dest">
           {state.destination ? state.destination.name : "?"}{" "}
@@ -64,6 +79,22 @@ export default function EndScreen({
         <p className="dm-squares" aria-label="Historique des essais">
           {squares}
         </p>
+
+        <section className="dm-end-summary" aria-label="Récapitulatif des réponses">
+          <h3>Récapitulatif des réponses</h3>
+          {state.guesses.length === 0 ? (
+            <p className="dm-hint-body">Aucune proposition.</p>
+          ) : (
+            <ol>
+              {state.guesses.map((g) => (
+                <li key={g.attemptNumber} className={g.correct ? "dm-guess-won" : ""}>
+                  {g.city.name} ({g.city.country}) —{" "}
+                  {g.correct ? "trouvé 🎉" : g.distanceKm + " km du but"}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
         {state.journey ? (
           <table className="dm-seg-table">
@@ -97,6 +128,11 @@ export default function EndScreen({
         {process.env.NODE_ENV === "development" ? (
           <button className="dm-btn" type="button" onClick={onReplay}>
             Rejouer (développement)
+          </button>
+        ) : null}
+        {onReroll ? (
+          <button className="dm-btn" type="button" onClick={onReroll}>
+            🎲 Nouvel itinéraire (développement)
           </button>
         ) : null}
       </div>

@@ -1,10 +1,14 @@
-// Projection des indices A → E à partir du « journey » (spécification §1.2
-// et §4). « Ne pas générer les indices à la main » (§10) : tout découle de
-// cette projection, un seul endroit à maintenir.
+// Projection des indices A → D à partir du journey (spécification §1.2
+// et §4, version maquette v5). « Ne pas générer les indices à la main » (§10) :
+// tout découle de cette projection, un seul endroit à maintenir.
+//
+// Ordre de déblocage : A après le 1er essai manqué, B après le 2e, C après
+// le 3e, D après le 4e — puis les deux derniers essais (5e et 6e) se jouent
+// sans nouvel indice.
 
 import type { Journey, JourneySegment, TransportMode } from "./routing/types.ts";
 
-export type HintKey = "A" | "B" | "C" | "D" | "E";
+export type HintKey = "A" | "B" | "C" | "D";
 
 export interface Hint {
   key: HintKey;
@@ -20,29 +24,13 @@ const CATEGORY: Record<TransportMode, string> = {
   intercity_bus: "Bus interurbain",
 };
 
-/**
- * Affinement de l'indice D : la compagnie derrière chaque ligne. Table
- * modeste et extensible ; une ligne inconnue reste sa propre compagnie.
- */
-const CARRIER_BY_LINE: Record<string, string> = {
-  "TGV inOui": "inOui (SNCF)",
-  "Métro ligne 5": "RATP",
-  "RER B": "RATP",
-  "Air France": "Air France",
-  "S-Bahn S7 (ÖBB)": "ÖBB",
-};
-
 /** Segments de transport : les correspondances ne comptent pas (§4). */
 export function transportSegments(journey: Journey): JourneySegment[] {
   return journey.segments.filter((s) => s.kind !== "connection");
 }
 
-function companyFor(segment: JourneySegment): string {
-  return CARRIER_BY_LINE[segment.lineOrCarrier] ?? segment.lineOrCarrier;
-}
-
 /**
- * Indice E : une étape desservie du trajet — jamais la destination, ni
+ * Indice D : une étape desservie du trajet — jamais la destination, ni
  * l'avant-dernière étape (§1.2). Les arrêts du dernier segment (celui qui
  * mène à la destination) sont exclus ; les « intermediateStops » d'un
  * segment ne contiennent de toute façon jamais ses extrémités. Choix
@@ -60,14 +48,13 @@ function intermediateStop(journey: Journey): string | null {
   return unique[Math.floor(unique.length / 2)] ?? null;
 }
 
-/** Les cinq indices, dans l'ordre de déblocage. */
+/** Les quatre indices, dans l'ordre de déblocage. */
 export function buildHints(journey: Journey): Hint[] {
   const segments = transportSegments(journey);
   const categories = segments.map((s) => CATEGORY[s.kind as TransportMode]);
   const withDurations = segments.map(
     (s) => CATEGORY[s.kind as TransportMode] + " · " + s.durationMin + " min",
   );
-  const companies = [...new Set(segments.map(companyFor))];
   const stop = intermediateStop(journey);
   return [
     { key: "A", title: "Modes de transport", body: categories.join("  →  ") },
@@ -77,9 +64,8 @@ export function buildHints(journey: Journey): Hint[] {
       title: "Lignes et compagnies",
       body: segments.map((s) => s.lineOrCarrier).join("  ·  "),
     },
-    { key: "D", title: "Compagnies empruntées", body: companies.join("  ·  ") },
     {
-      key: "E",
+      key: "D",
       title: "Étape intermédiaire",
       body:
         stop === null
@@ -89,7 +75,11 @@ export function buildHints(journey: Journey): Hint[] {
   ];
 }
 
-/** Indices débloqués après « failedAttempts » essais manqués (1 échec → A, …, 5 → E). */
+/**
+ * Indices débloqués après « failedAttempts » essais manqués :
+ * 1 échec → A, …, 4 échecs → D. Les essais 5 et 6 ne débloquent rien
+ * (plafond à 4 indices, deux derniers essais « nus »).
+ */
 export function unlockedHints(journey: Journey, failedAttempts: number): Hint[] {
-  return buildHints(journey).slice(0, Math.max(0, Math.min(5, failedAttempts)));
+  return buildHints(journey).slice(0, Math.max(0, Math.min(4, failedAttempts)));
 }
