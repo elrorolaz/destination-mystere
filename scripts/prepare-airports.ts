@@ -29,15 +29,19 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const OURAIRPORTS_URL = "https://davidmegginson.github.io/ourairports-data/airports.csv";
 
 /**
- * Aéroports internationaux : « large_airport » avec service régulier, plus les
- * « medium_airport » à service régulier (Cagliari, etc. — desservis à
- * l'international). Les petits aérodromes régionaux (Albert-Bray, Cognac…)
- * restent exclus.
+ * Aéroports internationaux MAJEURS uniquement : « large_airport » avec
+ * service régulier, plus les « medium_airport » à service régulier dont le
+ * hub (plus grande ville à ≤ 45 km) fait ≥ 500 000 hab. (Cagliari, etc.).
+ * Les petits aérodromes régionaux (Albert-Bray, Cognac…) — même avec IATA et
+ * service régulier — restent exclus : un vol du jeu ne part jamais d'un
+ * aérodrome minuscule.
  */
 const INTERNATIONAL_TYPES = new Set(["large_airport", "medium_airport"]);
 const SCHEDULED = "yes";
 /** Rayon de rattachement d'une ville à son « hub » aéroportuaire (km). */
 const HUB_RADIUS_KM = 45;
+/** Un medium_airport n'est retenu que si son hub fait au moins ce seuil. */
+const MEDIUM_MIN_HUB_POPULATION = 500_000;
 
 /** Villes préparées (si présentes) pour calculer le hubPopulation. */
 function loadPreparedCities(): CityRecord[] {
@@ -108,6 +112,11 @@ async function main() {
     // « Paris (Roissy-en-France, Val-d'Oise) » → « Paris » (nom de ville propre)
     const city = (row[cMunicipality] ?? "").split(/[,(]/)[0]?.trim() ?? "";
     const hub = hubOf(lat, lng, cities);
+    // Un medium_airport n'est retenu que s'il dessert un hub majeur.
+    if (type === "medium_airport" && (hub?.population ?? 0) < MEDIUM_MIN_HUB_POPULATION) {
+      skipped++;
+      continue;
+    }
     airports.push({
       id: row[cId] ?? iata,
       name: row[cName] ?? "",

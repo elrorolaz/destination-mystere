@@ -12,6 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { CityMapPoint, PublicCityInfo, PublicGuess, SegmentTrace } from "@/lib/game-types";
 import { addRouteOverlay, removeRouteOverlay } from "./RouteOverlay";
 import { createGuessMarker } from "./GuessPin";
+import { applyMapTheme, applyGamePalette, getThemeDef, type MapThemeId } from "./map-themes";
 
 const STYLE_URL =
   process.env.NEXT_PUBLIC_MAP_TILES_URL || "https://tiles.openfreemap.org/styles/liberty";
@@ -28,65 +29,26 @@ export interface GameMapProps {
    * zéro (épingles de propositions, épingle destination, tracés, origine).
    */
   resetKey: number;
-}
-
-/* ---------- Thème nuit : surcouche sombre par-dessus le style de base ---------- */
-
-function applyNightTheme(map: MLMap): void {
-  let style: { layers?: Array<Record<string, unknown>> } | undefined;
-  try {
-    style = map.getStyle() as { layers?: Array<Record<string, unknown>> };
-  } catch {
-    return;
-  }
-  if (!style || !style.layers) return;
-  for (const layer of style.layers) {
-    const id = String(layer.id);
-    const type = String(layer.type);
-    const sourceLayer = layer["source-layer"];
-    try {
-      if (type === "background") {
-        map.setPaintProperty(id, "background-color", "#0B1023");
-      } else if (type === "fill") {
-        // Toutes les couches de remplissage passent en nuit : l'eau, les
-        // bâtiments, mais aussi landcover/landuse/park qui sinon dessinent
-        // des formes claires par-dessus le fond.
-        if (sourceLayer === "water") {
-          map.setPaintProperty(id, "fill-color", "#101C3A");
-        } else if (sourceLayer === "building") {
-          map.setPaintProperty(id, "fill-color", "#131D40");
-        } else {
-          map.setPaintProperty(id, "fill-color", "#0D1730");
-        }
-      } else if (type === "line") {
-        // Routes, frontières, côtes : discrétion — traits fins et sombres.
-        map.setPaintProperty(id, "line-color", "#1E2A4D");
-        map.setPaintProperty(id, "line-opacity", 0.55);
-      } else if (type === "hillshade") {
-        map.setLayoutProperty(id, "visibility", "none");
-      } else if (type === "symbol") {
-        // Les labels de lieux du style de base sont masqués : la couche
-        // « constellation » affiche ses propres noms de villes.
-        if (sourceLayer === "place") {
-          map.setLayoutProperty(id, "visibility", "none");
-        } else {
-          map.setPaintProperty(id, "text-color", "#A9B4D0");
-          map.setPaintProperty(id, "text-halo-color", "#0B1023");
-        }
-      }
-    } catch {
-      // Propriété inadaptée pour cette couche : on ignore.
-    }
-  }
+  /** Fond de carte choisi (design) : thème appliqué par surcouche. */
+  mapTheme: MapThemeId;
 }
 
 /* ---------- Villes visibles (couche constellation) ---------- */
 
+// Design : les villes intermédiaires apparaissent tôt — dès le zoom 4 on voit
+// les villes ≥ 200 000 hab, puis 60 000 à zoom 5.5, 15 000 à zoom 7, et
+// toutes les villes ≥ 5 000 hab ensuite.
 function minPopulationForZoom(zoom: number): number {
-  if (zoom < 4.5) return 250000;
-  if (zoom < 6.5) return 80000;
-  if (zoom < 8.5) return 20000;
+  if (zoom < 4) return 200000;
+  if (zoom < 5.5) return 60000;
+  if (zoom < 7) return 15000;
   return 5000;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
+  );
 }
 
 function cityToFeature(city: CityMapPoint): GeoJSON.Feature {
@@ -164,12 +126,13 @@ function addCityLayers(map: MLMap): void {
     },
   } as unknown as LayerSpecification);
 
-  // Labels par paliers : capitales d'abord, jusqu'aux petites villes.
+  // Labels par paliers : les villes intermédiaires étiquetées tôt (design) —
+  // grandes villes dès le zoom 3, villes moyennes dès ~5.6, petites dès ~7.2.
   const tiers = [
-    { id: "label-xl", minzoom: 3, filter: [">=", ["get", "population"], 750000], size: 13 },
-    { id: "label-lg", minzoom: 5, filter: [">=", ["get", "population"], 200000], size: 12 },
-    { id: "label-md", minzoom: 7.2, filter: [">=", ["get", "population"], 25000], size: 11 },
-    { id: "label-sm", minzoom: 9.5, filter: ["<", ["get", "population"], 25000], size: 10 },
+    { id: "label-xl", minzoom: 3, filter: [">=", ["get", "population"], 500000], size: 13 },
+    { id: "label-lg", minzoom: 4.2, filter: [">=", ["get", "population"], 120000], size: 12 },
+    { id: "label-md", minzoom: 5.6, filter: [">=", ["get", "population"], 30000], size: 11 },
+    { id: "label-sm", minzoom: 7.2, filter: ["<", ["get", "population"], 30000], size: 10 },
   ];
   for (const tier of tiers) {
     map.addLayer({
@@ -223,6 +186,94 @@ export default function GameMap(props: GameMapProps) {
   const guessMarkersRef = useRef<Marker[]>([]);
   const guessCountRef = useRef(-1);
   const lastResetKeyRef = useRef(0);
+  const themeRef = useRef<MapThemeId>(props.mapTheme);
+  themeRef.current = props.mapTheme;
+  const confirmPopupRef = useRef<maplibregl.Popup | null>(null);
+  const snapReqRef = useRef(0);
+
+  // Le thème peut changer en cours de partie (sélecteur A–F) : on applique
+  // aussitôt le fond + la palette des éléments du jeu, et on les réapplique à
+  // chaque « styledata » (le style peut être rechangé par MapLibre).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || loadTick === 0) return;
+    applyMapTheme(map, props.mapTheme);
+    applyGamePalette(map, props.mapTheme);
+  }, [props.mapTheme, loadTick]);
+
+  const closeConfirmPopup = (): void => {
+    snapReqRef.current += 1; // invalide une éventuelle requête /api/snap en vol
+    if (confirmPopupRef.current) {
+      confirmPopupRef.current.remove();
+      confirmPopupRef.current = null;
+    }
+  };
+
+  /**
+   * Clic carte → popup de confirmation (design) : on snappe le point côté
+   * serveur (endpoint public, aucune donnée de partie) pour afficher le nom
+   * de la ville visée, puis le joueur confirme ou annule. La validation
+   * définitive reste faite par POST /api/guess avec les coordonnées du clic.
+   */
+  const openConfirmPopup = (map: MLMap, lat: number, lng: number): void => {
+    closeConfirmPopup();
+    const reqId = snapReqRef.current;
+
+    const el = document.createElement("div");
+    el.className = "dm-confirm";
+    el.innerHTML =
+      '<p class="dm-confirm-title">Proposer ce point ?</p>' +
+      '<p class="dm-confirm-sub">Rattachement en cours…</p>' +
+      '<div class="dm-confirm-actions">' +
+      '<button type="button" class="dm-btn dm-btn-primary dm-confirm-ok">Valider</button>' +
+      '<button type="button" class="dm-btn dm-confirm-cancel">Annuler</button>' +
+      "</div>";
+
+    const popup = new maplibregl.Popup({ closeButton: true, maxWidth: "300px", className: "dm-confirm-popup" })
+      .setLngLat([lng, lat])
+      .setDOMContent(el)
+      .addTo(map);
+    confirmPopupRef.current = popup;
+    popup.on("close", () => {
+      if (confirmPopupRef.current === popup) confirmPopupRef.current = null;
+    });
+
+    const okBtn = el.querySelector<HTMLButtonElement>(".dm-confirm-ok");
+    const cancelBtn = el.querySelector<HTMLButtonElement>(".dm-confirm-cancel");
+    cancelBtn?.addEventListener("click", () => closeConfirmPopup());
+    okBtn?.addEventListener("click", () => {
+      const current = clickRef.current;
+      closeConfirmPopup();
+      if (current.active && current.onGuess) current.onGuess(lat, lng);
+    });
+
+    // Snap public pour nommer la ville visée dans la popup.
+    void (async () => {
+      try {
+        const res = await fetch(`/api/snap?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}`);
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          snap?: { name: string; country: string; distanceKm: number };
+        };
+        if (reqId !== snapReqRef.current || !json.snap) return; // popup remplacée entre-temps
+        const sub = el.querySelector(".dm-confirm-sub");
+        const title = el.querySelector(".dm-confirm-title");
+        if (sub) {
+          sub.innerHTML =
+            "Ville visée : <strong>" +
+            escapeHtml(json.snap.name) +
+            "</strong> (" +
+            escapeHtml(json.snap.country) +
+            ") · clic à " +
+            json.snap.distanceKm.toFixed(1) +
+            " km du centre";
+        }
+        if (title) title.innerHTML = "Proposer <strong>" + escapeHtml(json.snap.name) + "</strong> ?";
+      } catch {
+        // snap indisponible : la popup garde « Proposer ce point ? » générique
+      }
+    })();
+  };
 
   // Nouvelle partie (reroll) : on efface tout ce qui appartient à l'ancienne —
   // épingle destination, épingles de propositions, tracés d'itinéraire et
@@ -247,6 +298,7 @@ export default function GameMap(props: GameMapProps) {
       originMarkerRef.current = null;
       originNameRef.current = null;
     }
+    closeConfirmPopup();
   }, [props.resetKey, loadTick]);
 
   // Initialisation : une seule instance de carte, réinstanciée proprement
@@ -265,9 +317,14 @@ export default function GameMap(props: GameMapProps) {
     });
     mapRef.current = map;
 
-    map.on("styledata", () => applyNightTheme(map));
+    map.on("styledata", () => {
+      applyMapTheme(map, themeRef.current);
+      applyGamePalette(map, themeRef.current);
+    });
     map.on("load", () => {
       addCityLayers(map);
+      applyMapTheme(map, themeRef.current);
+      applyGamePalette(map, themeRef.current);
       void loadVisibleCities(map);
       setLoadTick((t) => t + 1);
     });
@@ -281,10 +338,13 @@ export default function GameMap(props: GameMapProps) {
       }, 250);
     });
 
+    // Clic = demande de confirmation (design) : popup « Proposer X ? »
+    // avec Valider / Annuler — la proposition n'est envoyée qu'au clic sur
+    // « Valider » (elle appelle alors onGuess avec les coordonnées du clic).
     map.on("click", (e) => {
       const current = clickRef.current;
       if (current.active && current.onGuess) {
-        current.onGuess(e.lngLat.lat, e.lngLat.lng);
+        openConfirmPopup(map, e.lngLat.lat, e.lngLat.lng);
       }
     });
 
@@ -294,6 +354,10 @@ export default function GameMap(props: GameMapProps) {
 
     return () => {
       if (cityTimer) clearTimeout(cityTimer);
+      if (confirmPopupRef.current) {
+        confirmPopupRef.current.remove();
+        confirmPopupRef.current = null;
+      }
       map.remove();
       mapRef.current = null;
       originMarkerRef.current = null;
@@ -303,11 +367,13 @@ export default function GameMap(props: GameMapProps) {
     };
   }, []);
 
-  // Curseur : viseur pendant la partie active.
+  // Curseur : viseur pendant la partie active. En fin de partie (active
+  // false), on ferme aussi la popup de confirmation encore ouverte.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || loadTick === 0) return;
     map.getCanvas().style.cursor = props.active ? "crosshair" : "";
+    if (!props.active) closeConfirmPopup();
   }, [props.active, loadTick]);
 
   // Épingle du point de départ (or, pulsation) — recréée si l'origine change.
@@ -374,16 +440,18 @@ export default function GameMap(props: GameMapProps) {
   }, [props.guesses, loadTick]);
 
   // Tracés de fin de partie : voies ferrées + arc aérien, puis cadrage.
+  // Les couleurs viennent de la palette du thème courant.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || loadTick === 0 || props.traces.length === 0) return;
-    addRouteOverlay(map, props.traces);
+    addRouteOverlay(map, props.traces, getThemeDef(themeRef.current).palette);
     fitBoundsToTraces(map, props.traces);
-  }, [props.traces, loadTick]);
+  }, [props.traces, loadTick, props.mapTheme]);
 
   return (
     <div
       className="dm-map"
+      data-map-theme={getThemeDef(props.mapTheme).mode}
       ref={containerRef}
       role="application"
       aria-label="Carte de l'Europe : cliquez une ville pour proposer"

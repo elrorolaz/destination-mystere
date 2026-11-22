@@ -14,6 +14,7 @@
 // TGV + Transilien N (1 correspondance) l'emporte sur métro + ligne J (2).
 
 import { haversineKm } from "../../lib/geo/haversine.ts";
+import { decodePolyline } from "./polyline.ts";
 import type { JourneySegment } from "./types.ts";
 
 export const TRANSITOUS_BASE_URL = "https://api.transitous.org";
@@ -47,6 +48,11 @@ export interface RouterLeg {
   startTime: string; // ISO 8601 Z
   endTime: string;
   intermediateStops: string[];
+  /**
+   * Géométrie réelle du leg (points [lat, lng]) quand le routeur la fournit
+   * (MOTIS legGeometry) — sert au tracé de fin de partie sur les vraies voies.
+   */
+  geometry?: Array<[number, number]>;
   /** Leg estimé (navette aéroport) et non rejoué tel quel contre le GTFS. */
   estimated?: boolean;
 }
@@ -124,6 +130,8 @@ interface MotisLeg {
   tripShortName?: string;
   displayName?: string;
   intermediateStops?: Array<Partial<MotisStop>>;
+  /** Géométrie encodée (polyline Google, précision 1e-5) renvoyée par MOTIS. */
+  legGeometry?: { points?: string; length?: number };
 }
 interface MotisItinerary {
   duration?: number;
@@ -206,6 +214,8 @@ export function normalizeItinerary(it: MotisItinerary): RouterItinerary {
     const shortName = (leg.routeShortName ?? "").trim();
     // Les extrémités ne comptent pas comme arrêts intermédiaires.
     const inner = stops.filter((n) => n !== fromName && n !== toName);
+    // Géométrie réelle du leg (polyline MOTIS) pour le tracé de fin de partie.
+    const geom = leg.legGeometry?.points ? decodePolyline(leg.legGeometry.points) : undefined;
     legs.push({
       mode,
       kind,
@@ -219,6 +229,7 @@ export function normalizeItinerary(it: MotisItinerary): RouterItinerary {
       startTime: leg.startTime ?? leg.from?.departure ?? "",
       endTime: leg.endTime ?? leg.to?.arrival ?? "",
       intermediateStops: inner,
+      geometry: geom && geom.length >= 2 ? geom : undefined,
     });
   }
   return {

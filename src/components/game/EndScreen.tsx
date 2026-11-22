@@ -56,13 +56,13 @@ export default function EndScreen({
   };
 
   return (
-    <div className="dm-end-overlay" role="dialog" aria-modal="true">
+    <div className="dm-end-panel" role="dialog" aria-label="Résultat de la partie">
       <div className="dm-end-card">
         <button
           className="dm-end-close"
           type="button"
           onClick={onClose}
-          aria-label="Fermer l'écran de résultat et voir l'itinéraire sur la carte"
+          aria-label="Masquer le résultat pour voir l'itinéraire sur la carte"
           title="Voir l'itinéraire sur la carte"
         >
           ✕
@@ -118,7 +118,7 @@ export default function EndScreen({
 
         <p className="dm-seg-note">
           {followsTracks
-            ? "Sur la carte : le train suit les voies ferrées réelles (données OpenStreetMap) ; l'arc aérien est illustratif."
+            ? "Sur la carte : le trajet suit les voies ferrées réelles (OpenStreetMap ou géométrie du réseau GTFS) ; l'arc aérien est illustratif."
             : "Tracé indicatif : infrastructure ferroviaire indisponible, lignes droites."}
         </p>
 
@@ -127,12 +127,12 @@ export default function EndScreen({
         </button>
         {process.env.NODE_ENV === "development" ? (
           <button className="dm-btn" type="button" onClick={onReplay}>
-            Rejouer (développement)
+            Rejouer
           </button>
         ) : null}
         {onReroll ? (
           <button className="dm-btn" type="button" onClick={onReroll}>
-            🎲 Nouvel itinéraire (développement)
+            🎲 Nouvel itinéraire
           </button>
         ) : null}
       </div>

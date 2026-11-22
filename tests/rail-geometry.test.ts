@@ -92,3 +92,35 @@ describe("polylineKm", () => {
     expect(km).toBeLessThan(112);
   });
 });
+
+describe("smoothArc (repli lisse quand le tracé ferroviaire est indisponible)", () => {
+  it("échantillonne steps+1 points entre from et to", async () => {
+    const { smoothArc } = await import("../src/server/routing/rail-geometry.ts");
+    const g = smoothArc([49.2583, 4.0317], [45.7640, 4.8357], 32, 0.06);
+    expect(g).toHaveLength(33);
+    expect(g[0]).toEqual([49.2583, 4.0317]);
+    expect(g[32]).toEqual([45.7640, 4.8357]);
+  });
+
+  it("est bombée vers le nord et plus plate que l'arc aérien", async () => {
+    const { smoothArc, airArc } = await import("../src/server/routing/rail-geometry.ts");
+    const from: [number, number] = [48.0, 2.0];
+    const to: [number, number] = [48.0, 4.0]; // corde est-ouest
+    const repli = smoothArc(from, to, 32, 0.06);
+    const air = airArc(from, to, 32);
+    const midRepli = repli[16]!;
+    const midAir = air[16]!;
+    // bombée vers le nord : latitude du milieu > latitude de la corde
+    expect(midRepli[0]).toBeGreaterThan(48.0);
+    expect(midAir[0]).toBeGreaterThan(48.0);
+    // le repli (bulge 0,06) est nettement plus plat que l'arc aérien (0,15)
+    expect(midRepli[0] - 48.0).toBeLessThan((midAir[0] - 48.0) * 0.6);
+  });
+
+  it("airArc = smoothArc avec bulge 0,15 (rétrocompatible)", async () => {
+    const { smoothArc, airArc } = await import("../src/server/routing/rail-geometry.ts");
+    const from: [number, number] = [49.0, 2.0];
+    const to: [number, number] = [41.0, 28.0];
+    expect(airArc(from, to, 16)).toEqual(smoothArc(from, to, 16, 0.15));
+  });
+});

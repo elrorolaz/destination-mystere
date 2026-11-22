@@ -269,16 +269,18 @@ export function simplifyPath(points: LatLon[], epsilonDeg: number): LatLon[] {
 }
 
 /**
- * Arc aérien (M3) : Bézier quadratique entre deux aéroports, bombée vers le
- * nord, échantillonnée en « steps » points. Pas de réseau à interroger.
+ * Courbe de Bézier quadratique entre deux points, bombée vers le nord,
+ * échantillonnée en « steps » points. Pas de réseau à interroger.
+ * `bulge` = fraction de la corde dont le point de contrôle est décalé
+ * (0,15 = arc aérien marqué ; 0,06 = courbe douce de repli).
  */
-export function airArc(from: LatLon, to: LatLon, steps = 48): LatLon[] {
+export function smoothArc(from: LatLon, to: LatLon, steps = 48, bulge = 0.15): LatLon[] {
   const midLat = (from[0] + to[0]) / 2;
   const midLng = (from[1] + to[1]) / 2;
   const dLat = to[0] - from[0];
   const dLng = to[1] - from[1];
   const norm = Math.hypot(dLat, dLng) || 1;
-  const offset = norm * 0.15;
+  const offset = norm * bulge;
   // Perpendiculaire à la corde, orientée vers le nord.
   let px = -dLng / norm;
   let py = dLat / norm;
@@ -298,6 +300,14 @@ export function airArc(from: LatLon, to: LatLon, steps = 48): LatLon[] {
     ]);
   }
   return points;
+}
+
+/**
+ * Arc aérien (M3) : Bézier quadratique entre deux aéroports, bombée vers le
+ * nord (bulge 0,15), échantillonnée en « steps » points.
+ */
+export function airArc(from: LatLon, to: LatLon, steps = 48): LatLon[] {
+  return smoothArc(from, to, steps, 0.15);
 }
 
 /* ---------- Overpass (OpenStreetMap) ---------- */

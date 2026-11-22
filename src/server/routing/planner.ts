@@ -23,7 +23,7 @@ import { parisDateKey } from "../../lib/paris-date.ts";
 import {
   airlineForCountry,
   airportCityLabel,
-  airportFor,
+  majorAirportFor,
   estimateFlightDurationMin,
   type AirportPick,
 } from "./flights.ts";
@@ -50,10 +50,12 @@ export interface PlanOptions {
   minAirKm?: number;
   /** Distance de vol min entre les deux aéroports retenus (km). */
   minFlightKm?: number;
-  /** Portée max de recherche de l'aéroport international de départ (km). */
+  /** Portée max de recherche de l'aéroport majeur de départ (km). */
   originAirportKm?: number;
-  /** Portée max de recherche de l'aéroport international d'arrivée (km). */
+  /** Portée max de recherche de l'aéroport majeur d'arrivée (km). */
   destAirportKm?: number;
+  /** false = itinéraire 100 % terrestre : le candidat avion n'est pas construit. */
+  allowAir?: boolean;
   /** Désactive la vérification (tests). */
   verify?: boolean;
 }
@@ -251,11 +253,12 @@ export async function planJourney(
   const dateKey = opts.dateKey ?? parisDateKey();
   const timeIso = opts.timeIso ?? parisTimeIso(dateKey, "08:00");
   const airports = opts.airports ?? [];
-  const minAirKm = opts.minAirKm ?? 600;
+  const minAirKm = opts.minAirKm ?? 450;
   const minFlightKm = opts.minFlightKm ?? 400;
-  const originAirportKm = opts.originAirportKm ?? 150;
-  const destAirportKm = opts.destAirportKm ?? 250;
+  const originAirportKm = opts.originAirportKm ?? 200;
+  const destAirportKm = opts.destAirportKm ?? 300;
   const numItineraries = opts.numItineraries ?? 8;
+  const allowAir = opts.allowAir ?? true;
 
   // --- Candidat A : direct porte-à-porte (réel, GTFS).
   const direct = await router.plan(origin, dest, timeIso, numItineraries);
@@ -263,15 +266,16 @@ export async function planJourney(
   let candidates = direct.length;
 
   // --- Candidat B : départ → aéroport A → vol A→B → aéroport B → arrivée.
-  // A = aéroport international le plus proche du DÉPART, B = le plus proche
-  // de l'ARRIVÉE. Les tronçons au sol sont planifiés par le routeur (GTFS)
-  // puis concaténés : la méthode de calcul d'itinéraire est appliquée deux
-  // fois, une par accès aéroport. Jamais de vol France → France.
+  // A = aéroport international MAJEUR le plus proche du DÉPART, B = le plus
+  // proche de l'ARRIVÉE (jamais un petit aérodrome régional). Les tronçons au
+  // sol sont planifiés par le routeur (GTFS) puis concaténés : la méthode de
+  // calcul d'itinéraire est appliquée deux fois, une par accès aéroport.
+  // Jamais de vol France → France.
   const km = haversineKm(origin.lat, origin.lng, dest.lat, dest.lng);
   const sameCountry = Boolean(origin.country && dest.country && origin.country === dest.country);
-  if (km >= minAirKm && !sameCountry && airports.length > 0) {
-    const fromA = airportFor(origin, airports, originAirportKm);
-    const toA = airportFor(dest, airports, destAirportKm);
+  if (allowAir && km >= minAirKm && !sameCountry && airports.length > 0) {
+    const fromA = majorAirportFor(origin, airports, originAirportKm);
+    const toA = majorAirportFor(dest, airports, destAirportKm);
     if (fromA && toA && fromA.iata !== toA.iata) {
       const flightKm = haversineKm(fromA.lat, fromA.lng, toA.lat, toA.lng);
       if (flightKm >= minFlightKm) {

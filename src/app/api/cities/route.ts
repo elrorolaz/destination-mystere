@@ -2,9 +2,18 @@
 // La carte demande les villes visibles selon le zoom (minPopulation croissant
 // quand on dézoome) ; les bornes sont clampées côté serveur et le volume
 // plafonné. Aucune donnée de partie ici : uniquement le référentiel de villes.
+//
+// Design : UNE SEULE entrée par agglomération affichée. Chaque ville est
+// rattachée à la ville la plus peuplée dans un rayon de 15 km (cluster,
+// src/lib/geo/clusters.ts) : seules les villes de référence passent le filtre
+// isRef — les communes périphériques (et les arrondissements, renommés du nom
+// de leur parent à l'import) ne sont pas servies. dedupeCitiesByName reste en
+// filet de sécurité. Le snap serveur aboutit lui aussi sur la référence.
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db.ts";
+import { dedupeCitiesByName } from "../../../lib/cities-dedupe.ts";
+import { getCitiesCache } from "../../../server/cities.ts";
 import type { CityMapPoint } from "../../../lib/game-types.ts";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +34,11 @@ export async function GET(req: NextRequest) {
   const maxLng = clampParam(params, "maxLng", -180, 180, 42);
   const minPopulation = clampParam(params, "minPopulation", 0, 20_000_000, 80_000);
 
+  const cache = await getCitiesCache();
+  if (!cache) {
+    return NextResponse.json({ cities: [] });
+  }
+
   const rows = await db.city.findMany({
     where: {
       lat: { gte: minLat, lte: maxLat },
@@ -44,6 +58,9 @@ export async function GET(req: NextRequest) {
     take: MAX_CITIES,
   });
 
-  const cities: CityMapPoint[] = rows;
+  // Une seule entrée par agglomération : la ville de référence du cluster.
+  const cities: CityMapPoint[] = dedupeCitiesByName(rows).filter((r) =>
+    cache.clusters.isRef(r.id),
+  );
   return NextResponse.json({ cities });
 }

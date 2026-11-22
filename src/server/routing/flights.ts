@@ -22,6 +22,21 @@ export interface AirportPick {
   hubPopulation?: number;
   /** Nom de la ville-hub (plus grande ville à ≤ 45 km) : « Lyon » pour LYS. */
   hubCity?: string;
+  /** Type OurAirports : « large_airport », « medium_airport »… */
+  type?: string;
+}
+
+/** Seuil de population du hub pour qu'un aéroport soit « majeur » (§5.2). */
+export const MAJOR_HUB_POPULATION = 150_000;
+
+/**
+ * Aéroport « majeur » : large_airport, ou medium_airport dont la ville-hub
+ * fait ≥ 150 000 hab. Les petits aérodromes régionaux (même avec IATA et
+ * service régulier) sont exclus des itinéraires du jeu.
+ */
+export function isMajorAirport(a: AirportPick): boolean {
+  if (a.type === "large_airport") return true;
+  return (a.hubPopulation ?? 0) >= MAJOR_HUB_POPULATION;
 }
 
 /** Nom de ville affiché pour un aéroport : la ville-hub plutôt que la commune. */
@@ -98,10 +113,13 @@ export function airportFor(
 export const internationalAirportFor = airportFor;
 
 /**
- * Aéroport « majeur » (§5.2) le plus proche : parmi les aéroports à ≤ maxKm,
- * celui qui dessert la plus grande ville (hubPopulation, ville à ≤ 45 km de
- * ≥ 150 000 hab.) ; à hub égal, le plus proche. Sans hubPopulation renseigné,
- * retombe sur le plus proche.
+ * Aéroport « majeur » (§5.2) le PLUS PROCHE : parmi les aéroports MAJEURS
+ * (isMajorAirport) à ≤ maxKm, le plus proche de la ville (à distance égale,
+ * celui dont le hub est le plus peuplé). Aucun majeur à portée → null
+ * (pas de vol depuis un aérodrome minuscule). Le critère « le plus proche »
+ * est important pour un accès aéroportuaire réaliste : choisir le hub le
+ * plus peuplé du rayon enverrait le vol à Munich pour une destination à
+ * Prague, et l'accès au sol ferait échouer tout l'itinéraire.
  */
 export function majorAirportFor(
   city: { lat: number; lng: number },
@@ -109,16 +127,17 @@ export function majorAirportFor(
   maxKm = 45,
 ): AirportPick | null {
   let best: AirportPick | null = null;
-  let bestPop = -1;
   let bestKm = Infinity;
+  let bestPop = -1;
   for (const a of airports) {
+    if (!isMajorAirport(a)) continue;
     const km = haversineKm(city.lat, city.lng, a.lat, a.lng);
     if (km > maxKm) continue;
     const pop = a.hubPopulation ?? 0;
-    if (pop > bestPop || (pop === bestPop && km < bestKm)) {
+    if (km < bestKm - 1e-9 || (Math.abs(km - bestKm) <= 1e-9 && pop > bestPop)) {
       best = a;
-      bestPop = pop;
       bestKm = km;
+      bestPop = pop;
     }
   }
   return best;

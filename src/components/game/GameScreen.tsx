@@ -7,6 +7,12 @@ import { useCallback, useEffect, useState } from "react";
 import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
 import GameMap from "@/components/map/GameMap";
+import {
+  getStoredMapTheme,
+  getThemeDef,
+  storeMapTheme,
+  type MapThemeId,
+} from "@/components/map/map-themes";
 import AttemptHistory from "./AttemptHistory";
 import ClueBoard from "./ClueBoard";
 import EndScreen from "./EndScreen";
@@ -23,7 +29,19 @@ export default function GameScreen() {
   const [endHidden, setEndHidden] = useState(false);
   // Incrémenté à chaque reroll : la carte remet ses épingles/tracés à zéro.
   const [resetKey, setResetKey] = useState(0);
+  // Fond de carte choisi (design A/B/C) — persisté en localStorage.
+  const [mapTheme, setMapTheme] = useState<MapThemeId>("nuit");
   const isDev = process.env.NODE_ENV === "development";
+
+  // Lecture du thème mémorisé au montage (localStorage indisponible en SSR).
+  useEffect(() => {
+    setMapTheme(getStoredMapTheme());
+  }, []);
+
+  const chooseTheme = useCallback((id: MapThemeId) => {
+    setMapTheme(id);
+    storeMapTheme(id);
+  }, []);
 
   const loadTraces = useCallback(async () => {
     try {
@@ -190,6 +208,23 @@ export default function GameScreen() {
             </>
           )}
         </span>
+        <button
+          type="button"
+          className="dm-theme-toggle"
+          onClick={() => chooseTheme(mapTheme === "nuit" ? "jour" : "nuit")}
+          title={
+            mapTheme === "nuit"
+              ? "Passer en mode jour (fond D « Jour papier »)"
+              : "Passer en mode nuit (fond A « Nuit étoilée »)"
+          }
+          aria-label={mapTheme === "nuit" ? "Passer en mode jour" : "Passer en mode nuit"}
+        >
+          <span
+            className="dm-theme-swatch"
+            style={{ backgroundColor: getThemeDef(mapTheme === "nuit" ? "jour" : "nuit").swatch }}
+          />
+          {mapTheme === "nuit" ? "☀️ Jour" : "🌙 Nuit"}
+        </button>
         {isDev ? (
           <button
             className="dm-btn dm-reroll"
@@ -200,6 +235,7 @@ export default function GameScreen() {
           >
             🎲 Nouvel itinéraire
           </button>
+
         ) : null}
       </section>
 
@@ -212,6 +248,7 @@ export default function GameScreen() {
           traces={traces}
           onGuess={handleGuess}
           resetKey={resetKey}
+          mapTheme={mapTheme}
         />
         <aside className="dm-panel">
           {error ? (
@@ -219,20 +256,19 @@ export default function GameScreen() {
               <p className="dm-hint-body">{error}</p>
             </div>
           ) : null}
+          {state.status !== "ACTIVE" && !endHidden ? (
+            <EndScreen
+              state={state}
+              traces={traces}
+              onReplay={handleReplay}
+              onClose={() => setEndHidden(true)}
+              onReroll={isDev ? handleReroll : undefined}
+            />
+          ) : null}
           <ClueBoard hints={state.hints} attemptCount={state.attemptCount} />
           <AttemptHistory guesses={state.guesses} />
         </aside>
       </div>
-
-      {state.status !== "ACTIVE" && !endHidden ? (
-        <EndScreen
-          state={state}
-          traces={traces}
-          onReplay={handleReplay}
-          onClose={() => setEndHidden(true)}
-          onReroll={isDev ? handleReroll : undefined}
-        />
-      ) : null}
 
       {state.status !== "ACTIVE" && endHidden ? (
         <button

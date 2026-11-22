@@ -161,3 +161,27 @@ describe("planJourney — candidat avion (départ → aéroport A → vol A→B 
     expect(air!.lineOrCarrier).toBe("Austrian Airlines");
   });
 });
+
+describe("planJourney — allowAir=false (itinéraire 100 % terrestre, 40 % des tirages)", () => {
+  it("long trajet Paris → Vienne sans avion : aucun segment air, le direct rail est retenu", async () => {
+    const planned = await planJourney(paris, vienna, {
+      router: routerWith(480, 30),
+      airports,
+      dateKey: "2026-11-23",
+      timeIso: "2026-11-23T07:00:00Z",
+      allowAir: false,
+    });
+    expect(planned.journey.segments.some((s) => s.kind === "air")).toBe(false);
+    expect(planned.verified.ok).toBe(true);
+  });
+
+  it("allowAir=true (défaut) : le candidat avion est construit sur un long trajet", async () => {
+    const planned = await planJourney(paris, vienna, {
+      router: routerWith(480, 30),
+      airports,
+      dateKey: "2026-11-23",
+      timeIso: "2026-11-23T07:00:00Z",
+    });
+    expect(planned.journey.segments.some((s) => s.kind === "air")).toBe(true);
+  });
+});

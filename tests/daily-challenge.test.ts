@@ -6,9 +6,12 @@ import { haversineKm } from "../src/lib/geo/haversine.ts";
 import type { CityRecord } from "../src/lib/geo/types.ts";
 import {
   MAX_KM_EU,
+  MAX_KM_EU_TRAIN,
   MAX_KM_FR,
-  MIN_KM_EU,
+  MIN_KM_EU_AIR,
+  MIN_KM_EU_TRAIN,
   MIN_KM_FR,
+  NO_AIR_PROBABILITY,
   selectCityPair,
 } from "../src/server/daily-challenge.ts";
 
@@ -67,13 +70,49 @@ describe("selectCityPair — déterminisme et contraintes", () => {
         expect(pair!.dest.country).toBe("FR");
         expect(km).toBeGreaterThanOrEqual(MIN_KM_FR);
         expect(km).toBeLessThanOrEqual(MAX_KM_FR);
+        expect(pair!.allowAir).toBe(false); // jamais de vol France → France
       } else {
         expect(pair!.dest.country).not.toBe("FR");
         expect(pair!.dest.population).toBeGreaterThanOrEqual(50000);
-        expect(km).toBeGreaterThanOrEqual(MIN_KM_EU);
-        expect(km).toBeLessThanOrEqual(MAX_KM_EU);
+        if (pair!.allowAir) {
+          expect(km).toBeGreaterThanOrEqual(MIN_KM_EU_AIR);
+          expect(km).toBeLessThanOrEqual(MAX_KM_EU);
+        } else {
+          // Europe 100 % train : bornes « terrestrial »
+          expect(km).toBeGreaterThanOrEqual(MIN_KM_EU_TRAIN);
+          expect(km).toBeLessThanOrEqual(MAX_KM_EU_TRAIN);
+        }
       }
       expect(pair!.origin.id).not.toBe(pair!.dest.id);
+    }
+  });
+
+  it("40 % des tirages sont sans avion (NO_AIR_PROBABILITY)", () => {
+    expect(NO_AIR_PROBABILITY).toBe(0.4);
+    let noAir = 0;
+    const n = 400;
+    for (let i = 0; i < n; i++) {
+      const key = "2027-" + String(Math.floor(i / 28) + 1).padStart(2, "0") + "-" + String((i % 28) + 1).padStart(2, "0");
+      const pair = selectCityPair(cities, key);
+      if (pair && !pair.allowAir) noAir++;
+    }
+    const freq = noAir / n;
+    expect(freq).toBeGreaterThan(0.3);
+    expect(freq).toBeLessThan(0.5);
+  });
+
+  it("forceZone / forceAllowAir : les réessais restent dans la zone et le mode tirés", () => {
+    const key = "2026-11-21";
+    const first = selectCityPair(cities, key, 0);
+    expect(first).not.toBeNull();
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const again = selectCityPair(cities, key, attempt, {
+        forceZone: first!.zone,
+        forceAllowAir: first!.allowAir,
+      });
+      expect(again).not.toBeNull();
+      expect(again!.zone).toBe(first!.zone);
+      expect(again!.allowAir).toBe(first!.allowAir);
     }
   });
 

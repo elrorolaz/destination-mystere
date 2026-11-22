@@ -20,6 +20,8 @@
     "data:import": "tsx scripts/import-db.ts",
     "challenge:generate": "tsx scripts/generate-daily.ts",
     "check:itinerary": "tsx scripts/check-itinerary.ts",
+    "check:leg-geometry": "tsx scripts/check-leg-geometry.ts",
+    "diagnose:zone": "tsx scripts/diagnose-zone.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",

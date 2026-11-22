@@ -73,9 +73,9 @@ const pool: DevCityPick[] = [
 ];
 
 const airports: AirportPick[] = [
-  { iata: "CDG", name: "Paris Charles de Gaulle", city: "Paris", lat: 49.0097, lng: 2.5479 },
-  { iata: "IST", name: "Istanbul Airport", city: "Istanbul", lat: 41.2619, lng: 28.7419 },
-  { iata: "MUC", name: "Munich Airport", city: "Munich", lat: 48.3538, lng: 11.786 },
+  { iata: "CDG", name: "Paris Charles de Gaulle", city: "Paris", lat: 49.0097, lng: 2.5479, type: "large_airport", hubPopulation: 2_100_000, hubCity: "Paris" },
+  { iata: "IST", name: "Istanbul Airport", city: "Istanbul", lat: 41.2619, lng: 28.7419, type: "large_airport", hubPopulation: 15_000_000, hubCity: "Istanbul" },
+  { iata: "MUC", name: "Munich Airport", city: "Munich", lat: 48.3538, lng: 11.786, type: "large_airport", hubPopulation: 2_800_000, hubCity: "Munich" },
 ];
 
 /** rand déterministe pour des tests reproductibles. */

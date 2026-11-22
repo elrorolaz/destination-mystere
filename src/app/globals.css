@@ -314,29 +314,21 @@ a {
   color: #231a05;
 }
 
-/* ---------- Fin de partie ---------- */
+/* ---------- Fin de partie (panneau latéral : la carte et le tracé restent visibles) ---------- */
 
-.dm-end-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(7, 10, 22, 0.78);
-  backdrop-filter: blur(3px);
-  padding: 1rem;
+.dm-end-panel {
+  min-width: 0;
 }
 
 .dm-end-card {
   position: relative;
-  width: min(560px, 100%);
-  max-height: 92vh;
+  width: 100%;
+  max-height: 70vh;
   overflow: auto;
   background: var(--dm-night-2);
   border: 1px solid rgba(232, 180, 74, 0.35);
-  border-radius: 16px;
-  padding: 1.6rem 1.8rem;
+  border-radius: 14px;
+  padding: 1.2rem 1.2rem;
 }
 
 .dm-end-close {
@@ -407,6 +399,85 @@ a {
 .dm-reroll {
   padding: 0.25rem 0.7rem;
   font-size: 0.82rem;
+}
+
+/* ---------- Bascule mode jour / nuit (fonds A et D retenus) ---------- */
+
+.dm-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  border: 1px solid var(--dm-border);
+  border-radius: 999px;
+  background: var(--dm-night);
+  color: var(--dm-mist);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px 3px 5px;
+  cursor: pointer;
+}
+
+.dm-theme-toggle:hover {
+  border-color: var(--dm-gold);
+  color: var(--dm-gold-strong);
+}
+
+.dm-theme-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(169, 180, 208, 0.45);
+  display: inline-block;
+}
+
+/* ---------- Popup de confirmation de clic (design) ---------- */
+
+.dm-confirm-popup .maplibregl-popup-content {
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 180, 74, 0.35);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dm-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 200px;
+}
+
+.dm-confirm-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--dm-foam);
+}
+
+.dm-confirm-title strong {
+  color: var(--dm-gold-strong);
+}
+
+.dm-confirm-sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--dm-mist);
+}
+
+.dm-confirm-sub strong {
+  color: var(--dm-foam);
+}
+
+.dm-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.dm-confirm-actions .dm-btn {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  flex: 1;
 }
 
 .dm-end-card h2 {
@@ -563,4 +634,101 @@ a {
 .maplibregl-popup-tip {
   border-top-color: var(--dm-ink) !important;
   border-bottom-color: var(--dm-ink) !important;
+}
+
+/* ---------- Carte en thème CLAIR (D/E/F) : épingles, popup, contrôles ---------- */
+
+.dm-map[data-map-theme="light"] .dm-guess-pin {
+  background: #ffffff;
+  border-color: #d50000;
+  color: #7f1d1d;
+}
+
+.dm-map[data-map-theme="light"] .dm-guess-pin.correct {
+  border-color: #15803d;
+  background: rgba(21, 128, 61, 0.15);
+  color: #14532d;
+}
+
+.dm-map[data-map-theme="light"] .dm-origin-core {
+  background: #ffffff;
+  border-color: #d97706;
+}
+
+.dm-map[data-map-theme="light"] .dm-origin-pulse {
+  background: #d97706;
+  animation: dm-pulse-light 2.4s ease-out infinite;
+}
+
+@keyframes dm-pulse-light {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(217, 119, 6, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);
+  }
+}
+
+.dm-map[data-map-theme="light"] .dm-dest-pin {
+  background: #16a34a;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.35);
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-popup .maplibregl-popup-content {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(217, 119, 6, 0.5);
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-popup .maplibregl-popup-tip {
+  border-top-color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-title {
+  color: #111827;
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-title strong {
+  color: #b45309;
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-sub {
+  color: #4b5563;
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-sub strong {
+  color: #111827;
+}
+
+.dm-map[data-map-theme="light"] .dm-confirm-cancel {
+  background: #eef0f4;
+  color: #111827;
+  border-color: #c9cdd6;
+}
+
+.dm-map[data-map-theme="light"] .maplibregl-ctrl-group {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.dm-map[data-map-theme="light"] .maplibregl-ctrl-group button + button {
+  border-top: 1px solid #e5e7eb !important;
+}
+
+.dm-map[data-map-theme="light"] .maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: none;
+}
+
+.dm-map[data-map-theme="light"] .maplibregl-ctrl-attrib {
+  background: rgba(255, 255, 255, 0.8) !important;
+  color: #4b5563;
+}
+
+.dm-map[data-map-theme="light"] .maplibregl-ctrl-attrib a {
+  color: #4b5563;
 }
