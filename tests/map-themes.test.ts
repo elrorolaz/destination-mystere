@@ -24,6 +24,7 @@ function fakeMap(layerDefs: Array<Record<string, unknown>>) {
   const calls: Call[] = [];
   const map = {
     getStyle: () => ({ layers: layerDefs }),
+    getLayer: (id: string) => layerDefs.find((l) => l.id === id),
     setPaintProperty: (id: string, prop: string, value: unknown) => {
       calls.push({ kind: "paint", id, prop, value });
     },
@@ -76,6 +77,24 @@ describe("map-themes — le thème de fond ne touche jamais les couches du jeu",
       const label = calls.find((c) => c.id === "label-md" && c.prop === "text-color");
       expect(dot?.value).toBe(theme.palette.dot);
       expect(label?.value).toBe(theme.palette.label);
+    }
+  });
+
+  it("régression « Cannot style non-existing layer » : aucune couche absente n'est stylée", () => {
+    // MapLibre v5 fire un event error (et non un throw) quand on style une
+    // couche inexistante — ex. « styledata » avant « load », avant que
+    // addCityLayers ait créé city-*/label-*. Aucun appel ne doit partir.
+    for (const theme of MAP_THEMES) {
+      const empty = fakeMap([]); // style pas encore chargé / couches du jeu absentes
+      applyGamePalette(empty.map, theme.id as MapThemeId);
+      applyMapTheme(empty.map, theme.id as MapThemeId);
+      expect(empty.calls, `thème ${theme.id}`).toEqual([]);
+
+      const partial = fakeMap([{ id: "background", type: "background" }]);
+      applyGamePalette(partial.map, theme.id as MapThemeId);
+      expect(partial.calls.map((c) => c.id)).toEqual([]); // city-*, label-* absents
+      applyMapTheme(partial.map, theme.id as MapThemeId);
+      expect(partial.calls.every((c) => c.id === "background")).toBe(true);
     }
   });
 

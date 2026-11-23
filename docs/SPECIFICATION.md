@@ -25,9 +25,8 @@
 | **Après l'échec 1** | **Indice A** : la liste ordonnée des **modes de transport**, ramenés aux seules catégories **transports urbains / avion / train** (ex. « Transports urbains → Avion → Transports urbains »), **sans les durées** |
 | **Après l'échec 2** | **Indice B** : les **modes de l'indice A et les durées des segments ensemble** (ex. « Transports urbains — 36 min → Avion — 107 min → Transports urbains — 31 min ») |
 | **Après l'échec 3** | **Indice C** : le **nom des lignes / compagnies** (ex. « TER Grand Est, TGV inOui, Air France, Métro ligne 14 ») |
-| **Après l'échec 4** | **Indice D** : le **nom des compagnies empruntées** (ex. « Métro ligne 12, Air France, TGV InOui ») |
-| **Après l'échec 5** | **Indice E** : une **destination intermédiaire** du trajet — jamais la destination, ni l'avant-dernier arrêt |
-| **Essai 6** | Dernier essai : victoire à 250 pts, sinon **score de proximité** (§1.3) |
+| **Après l'échec 4** | **Indice E** : une **destination intermédiaire** du trajet — jamais la destination, ni l'avant-dernier arrêt |
+| **Essai 5 & 6** | Derniers essais : victoire à 250 pts, sinon **score de proximité** (§1.3) |
 | **Après l'échec 6** | Révélation de la destination + score de proximité selon la distance du dernier clic |
 
 - **Maximum : 6 essais.** Une proposition est juste si la ville rattachée au clic est la ville de destination.

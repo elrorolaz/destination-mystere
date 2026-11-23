@@ -319,7 +319,10 @@ export default function GameMap(props: GameMapProps) {
 
     map.on("styledata", () => {
       applyMapTheme(map, themeRef.current);
-      applyGamePalette(map, themeRef.current);
+      // « styledata » fire aussi AVANT « load » : les couches du jeu
+      // (city-*, label-*) n'existent pas encore — applyGamePalette les ignore
+      // tant qu'elles n'ont pas été créées par addCityLayers.
+      if (map.getLayer("city-dot")) applyGamePalette(map, themeRef.current);
     });
     map.on("load", () => {
       addCityLayers(map);

@@ -161,14 +161,18 @@ function layersOf(map: MLMap): StyleLayer[] {
 }
 
 function setPaint(map: MLMap, id: string, prop: string, value: unknown): void {
+  // MapLibre v5 ne throw PAS sur une couche inexistante : il fire un event
+  // « error » (« Cannot style non-existing layer ... ») — à éviter absolument.
+  if (!map.getLayer(id)) return;
   try {
     map.setPaintProperty(id, prop, value as never);
   } catch {
-    // propriété inadaptée à cette couche : on ignore
+    // style pas encore chargé (_checkLoaded) ou propriété inadaptée : on ignore
   }
 }
 
 function setLayout(map: MLMap, id: string, prop: string, value: unknown): void {
+  if (!map.getLayer(id)) return; // idem : pas de « Cannot style non-existing layer »
   try {
     map.setLayoutProperty(id, prop, value as never);
   } catch {
