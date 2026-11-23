@@ -314,21 +314,32 @@ a {
   color: #231a05;
 }
 
-/* ---------- Fin de partie (panneau latéral : la carte et le tracé restent visibles) ---------- */
+/* ---------- Fin de partie (panneau CENTRÉ ; la carte reste cliquable autour) ---------- */
 
 .dm-end-panel {
-  min-width: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  /* Le fond laisse passer les clics vers la carte : cliquer sur la carte
+     masque le panneau (voir le tracé) — le bouton « Voir le résultat » le réaffiche. */
+  pointer-events: none;
 }
 
 .dm-end-card {
   position: relative;
-  width: 100%;
-  max-height: 70vh;
+  pointer-events: auto; /* la carte du panneau, elle, reste interactive */
+  width: min(560px, 94vw);
+  max-height: 82vh;
   overflow: auto;
   background: var(--dm-night-2);
   border: 1px solid rgba(232, 180, 74, 0.35);
   border-radius: 14px;
   padding: 1.2rem 1.2rem;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
 }
 
 .dm-end-close {
@@ -581,7 +592,16 @@ a {
   box-shadow: 0 0 0 4px rgba(63, 185, 132, 0.4);
 }
 
+/* Épingle de proposition : numéro + distance au but directement lisible (§1.2). */
 .dm-guess-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.dm-guess-num {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -595,9 +615,22 @@ a {
   justify-content: center;
 }
 
-.dm-guess-pin.correct {
+.dm-guess-pin.correct .dm-guess-num {
   border-color: var(--dm-green);
   background: var(--dm-green-soft);
+}
+
+.dm-guess-dist {
+  background: rgba(11, 16, 35, 0.9);
+  border: 1px solid rgba(228, 87, 79, 0.6);
+  color: var(--dm-foam);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* ---------- Contrôles MapLibre, thème nuit ---------- */
@@ -638,16 +671,22 @@ a {
 
 /* ---------- Carte en thème CLAIR (D/E/F) : épingles, popup, contrôles ---------- */
 
-.dm-map[data-map-theme="light"] .dm-guess-pin {
+.dm-map[data-map-theme="light"] .dm-guess-pin .dm-guess-num {
   background: #ffffff;
   border-color: #d50000;
   color: #7f1d1d;
 }
 
-.dm-map[data-map-theme="light"] .dm-guess-pin.correct {
+.dm-map[data-map-theme="light"] .dm-guess-pin.correct .dm-guess-num {
   border-color: #15803d;
   background: rgba(21, 128, 61, 0.15);
   color: #14532d;
+}
+
+.dm-map[data-map-theme="light"] .dm-guess-pin .dm-guess-dist {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(213, 0, 0, 0.5);
+  color: #7f1d1d;
 }
 
 .dm-map[data-map-theme="light"] .dm-origin-core {
@@ -731,4 +770,238 @@ a {
 
 .dm-map[data-map-theme="light"] .maplibregl-ctrl-attrib a {
   color: #4b5563;
+}
+
+/* ---------- Écran de chargement / progression (génération de l'itinéraire) ---------- */
+
+.dm-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 16, 35, 0.82);
+  padding: 2rem;
+}
+
+/* En plein écran (reroll 🎲 pendant la partie) : on passe en fixed via cette classe. */
+.dm-wrap > .dm-loading {
+  position: fixed;
+  z-index: 60;
+}
+
+.dm-loading-card {
+  max-width: 26rem;
+  text-align: center;
+  background: var(--dm-night-2);
+  border: 1px solid var(--dm-border);
+  border-radius: 16px;
+  padding: 1.6rem 1.8rem;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dm-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 0.9rem;
+  border-radius: 50%;
+  border: 4px solid var(--dm-ink-2);
+  border-top-color: var(--dm-gold);
+  animation: dm-spin 0.9s linear infinite;
+}
+
+@keyframes dm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dm-loading-title {
+  margin: 0 0 0.8rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--dm-foam);
+}
+
+.dm-loading-sub {
+  margin: 0.7rem 0 0;
+  color: var(--dm-mist);
+  font-size: 0.85rem;
+}
+
+/* Barre de progression indéterminée (la durée du calcul est inconnue). */
+.dm-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--dm-ink);
+  overflow: hidden;
+}
+
+.dm-progress-bar {
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--dm-gold), var(--dm-gold-strong));
+  animation: dm-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes dm-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+/* ---------- Modales (accueil du jeu, nouvel indice) ---------- */
+
+.dm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(11, 16, 35, 0.72);
+  cursor: pointer; /* clic en-dehors = fermer */
+}
+
+.dm-modal {
+  cursor: default;
+  width: min(30rem, 94vw);
+  max-height: 86vh;
+  overflow: auto;
+  background: var(--dm-night-2);
+  border: 1px solid rgba(232, 180, 74, 0.4);
+  border-radius: 16px;
+  padding: 1.4rem 1.5rem;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  animation: dm-pop 0.18s ease-out;
+}
+
+@keyframes dm-pop {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.dm-modal-hint {
+  margin: 0.8rem 0 0;
+  text-align: center;
+  color: var(--dm-mist);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* --- Écran d'accueil du jeu (départ + durée + règles) --- */
+
+.dm-intro-eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--dm-gold);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dm-intro-title {
+  margin: 0 0 0.7rem;
+  font-size: 1.45rem;
+  color: var(--dm-foam);
+}
+
+.dm-intro-journey {
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--dm-gold-soft);
+  border: 1px solid rgba(232, 180, 74, 0.35);
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.dm-intro-journey strong {
+  color: var(--dm-gold-strong);
+}
+
+.dm-intro-rules {
+  margin: 0 0 1.1rem;
+  padding-left: 1.2rem;
+  color: var(--dm-mist);
+  font-size: 0.92rem;
+}
+
+.dm-intro-rules li {
+  margin-bottom: 0.35rem;
+}
+
+.dm-intro-rules strong {
+  color: var(--dm-foam);
+}
+
+.dm-intro .dm-btn {
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 0.75rem 1.1rem;
+}
+
+/* --- Panneau « nouvel indice débloqué » --- */
+
+.dm-hint-popup {
+  text-align: center;
+}
+
+.dm-hint-popup-eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--dm-gold);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dm-hint-popup-title {
+  margin: 0 0 0.7rem;
+  font-size: 1.3rem;
+  color: var(--dm-gold-strong);
+}
+
+.dm-hint-popup-body {
+  margin: 0 0 1.1rem;
+  padding: 0.8rem 1rem;
+  background: var(--dm-night);
+  border: 1px solid var(--dm-border);
+  border-radius: 10px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--dm-foam);
+  line-height: 1.8;
+  word-break: break-word;
+}
+
+.dm-hint-popup .dm-btn {
+  width: 100%;
+}
+
+/* --- Divers --- */
+
+.dm-end-tip {
+  margin: 0.6rem 0 0.9rem;
+  color: var(--dm-mist);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+/* Panneau latéral des indices : version compacte (les indices y restent
+   accessibles en petit après la popup centrale). */
+.dm-panel .dm-card[aria-label="Indices"] .dm-hint-body {
+  font-size: 0.85rem;
 }

@@ -3,9 +3,9 @@
 // Écran de jeu (M3) : orchestre l'état public servi par /api/challenge, les
 // propositions via /api/guess, et les tracés de fin de partie.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
+import type { PublicChallengeState, PublicHint, SegmentTrace } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
 import GameMap from "@/components/map/GameMap";
 import {
@@ -17,6 +17,9 @@ import {
 import AttemptHistory from "./AttemptHistory";
 import ClueBoard from "./ClueBoard";
 import EndScreen from "./EndScreen";
+import HintPopup from "./HintPopup";
+import IntroModal from "./IntroModal";
+import LoadingOverlay from "./LoadingOverlay";
 
 /** Score par essai réussi (§1.3) — miroir client de STANDARD_SCORES. */
 const SCORES = [1000, 850, 700, 550, 400, 250];
@@ -26,8 +29,15 @@ export default function GameScreen() {
   const [traces, setTraces] = useState<SegmentTrace[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Écran de fin masqué par la croix ✕ pour voir l'itinéraire sur la carte.
+  // Écran de fin masqué (croix ✕ ou clic sur la carte) pour voir le tracé.
   const [endHidden, setEndHidden] = useState(false);
+  // Écran d'accueil (départ + durée + règles) : affiché à l'ouverture tant que
+  // la partie est active et pas encore vu pour cette date (sessionStorage).
+  const [introOpen, setIntroOpen] = useState(false);
+  // Panneau « nouvel indice » affiché au centre à chaque indice débloqué.
+  const [popupHint, setPopupHint] = useState<PublicHint | null>(null);
+  // Nombre d'indices déjà « vus » : pas de popup au rechargement de la page.
+  const hintsSeenRef = useRef<number | null>(null);
   // Incrémenté à chaque reroll : la carte remet ses épingles/tracés à zéro.
   const [resetKey, setResetKey] = useState(0);
   // Fond de carte choisi (design A/B/C) — persisté en localStorage.
@@ -70,6 +80,18 @@ export default function GameScreen() {
         const challenge = json as PublicChallengeState;
         setState(challenge);
         setEndHidden(false);
+        // État initial : on ne rejoue pas les popups des indices déjà là.
+        hintsSeenRef.current = challenge.hints.length;
+        // Écran d'accueil à l'ouverture du jeu (partie active, jamais vu ce jour).
+        if (challenge.status === "ACTIVE") {
+          try {
+            if (window.sessionStorage.getItem("dm-intro-" + challenge.date) !== "1") {
+              setIntroOpen(true);
+            }
+          } catch {
+            setIntroOpen(true);
+          }
+        }
         if (challenge.status !== "ACTIVE") {
           void loadTraces();
         }
@@ -81,6 +103,36 @@ export default function GameScreen() {
       cancelled = true;
     };
   }, [loadTraces]);
+
+  // À chaque nouvel indice débloqué (essai manqué) : popup au centre de
+  // l'écran. L'indice reste ensuite dans le panneau latéral (ClueBoard).
+  useEffect(() => {
+    if (!state) return;
+    const n = state.hints.length;
+    if (hintsSeenRef.current === null) {
+      hintsSeenRef.current = n;
+      return;
+    }
+    if (n > hintsSeenRef.current && state.status === "ACTIVE") {
+      const last = state.hints[n - 1];
+      if (last) setPopupHint(last);
+    }
+    hintsSeenRef.current = n;
+  }, [state]);
+
+  const closeIntro = useCallback(() => {
+    setIntroOpen(false);
+    setState((s) => {
+      if (s) {
+        try {
+          window.sessionStorage.setItem("dm-intro-" + s.date, "1");
+        } catch {
+          // sessionStorage indisponible : l'intro réapparaîtra au prochain chargement
+        }
+      }
+      return s;
+    });
+  }, []);
 
   const handleGuess = useCallback(
     async (lat: number, lng: number) => {
@@ -149,6 +201,11 @@ export default function GameScreen() {
         setTraces([]);
         setEndHidden(false);
         setResetKey((k) => k + 1);
+        // Nouvel itinéraire chargé : on réaffiche l'écran d'accueil et on
+        // oublie les indices vus (aucune popup pour l'ancien défi).
+        hintsSeenRef.current = challenge.hints.length;
+        setPopupHint(null);
+        setIntroOpen(true);
       }
     } catch {
       setError("Connexion impossible.");
@@ -162,7 +219,11 @@ export default function GameScreen() {
     return (
       <div className="dm-wrap">
         <div className="dm-map">
-          <div className="dm-map-msg">{error ?? "Chargement du défi du jour…"}</div>
+          {error ? (
+            <div className="dm-map-msg">{error}</div>
+          ) : (
+            <LoadingOverlay title="Chargement du défi du jour…" />
+          )}
         </div>
       </div>
     );
@@ -248,6 +309,11 @@ export default function GameScreen() {
           active={state.status === "ACTIVE" && !busy}
           traces={traces}
           onGuess={handleGuess}
+          onMapClick={() => {
+            // Fin de partie : un clic sur la carte masque le panneau de
+            // résultat pour voir l'itinéraire tracé.
+            if (state.status !== "ACTIVE") setEndHidden(true);
+          }}
           resetKey={resetKey}
           mapTheme={mapTheme}
         />
@@ -257,19 +323,22 @@ export default function GameScreen() {
               <p className="dm-hint-body">{error}</p>
             </div>
           ) : null}
-          {state.status !== "ACTIVE" && !endHidden ? (
-            <EndScreen
-              state={state}
-              traces={traces}
-              onReplay={handleReplay}
-              onClose={() => setEndHidden(true)}
-              onReroll={isDev ? handleReroll : undefined}
-            />
-          ) : null}
           <ClueBoard hints={state.hints} attemptCount={state.attemptCount} />
           <AttemptHistory guesses={state.guesses} />
         </aside>
       </div>
+
+      {/* Panneau de résultat au CENTRE de l'écran ; un clic sur la carte
+          (onMapClick) ou la croix ✕ le masque, le bouton ci-dessous le réaffiche. */}
+      {state.status !== "ACTIVE" && !endHidden ? (
+        <EndScreen
+          state={state}
+          traces={traces}
+          onReplay={handleReplay}
+          onClose={() => setEndHidden(true)}
+          onReroll={isDev ? handleReroll : undefined}
+        />
+      ) : null}
 
       {state.status !== "ACTIVE" && endHidden ? (
         <button
@@ -279,6 +348,24 @@ export default function GameScreen() {
         >
           🏁 Voir le résultat
         </button>
+      ) : null}
+
+      {/* Écran d'accueil : départ + durée + règles (clic en-dehors = jouer). */}
+      {introOpen && state.status === "ACTIVE" ? (
+        <IntroModal state={state} onClose={closeIntro} />
+      ) : null}
+
+      {/* Panneau « nouvel indice » au centre à chaque déblocage. */}
+      {popupHint && state.status === "ACTIVE" ? (
+        <HintPopup hint={popupHint} onClose={() => setPopupHint(null)} />
+      ) : null}
+
+      {/* Progression pendant la (re)génération d'un itinéraire (🎲 reroll). */}
+      {busy && state ? (
+        <LoadingOverlay
+          title="🎲 Génération d'un nouvel itinéraire…"
+          sub="Le serveur recalcule un trajet ; la partie reprendra ensuite."
+        />
       ) : null}
     </div>
   );

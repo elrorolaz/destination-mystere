@@ -121,6 +121,10 @@ export default function EndScreen({
             ? "Sur la carte : le trajet suit les voies ferrées réelles (OpenStreetMap ou géométrie du réseau GTFS) ; l'arc aérien est illustratif."
             : "Tracé indicatif : infrastructure ferroviaire indisponible, lignes droites."}
         </p>
+        <p className="dm-end-tip">
+          💡 Cliquez sur la carte pour masquer ce panneau et voir l&apos;itinéraire ;
+          le bouton « 🏁 Voir le résultat » en bas à droite le réaffiche.
+        </p>
 
         <button className="dm-btn dm-share" type="button" onClick={copyShare}>
           {copied ? "Copié ✔" : "Copier mon résultat"}

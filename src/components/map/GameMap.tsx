@@ -25,6 +25,11 @@ export interface GameMapProps {
   traces: SegmentTrace[];
   onGuess?: (lat: number, lng: number) => void;
   /**
+   * Appelé à CHAQUE clic sur la carte (même en fin de partie, quand onGuess
+   * est inactif) : sert à fermer le panneau de résultat pour voir le tracé.
+   */
+  onMapClick?: (lat: number, lng: number) => void;
+  /**
    * Incrémenté à chaque nouvelle partie (reroll 🎲) : la carte est remise à
    * zéro (épingles de propositions, épingle destination, tracés, origine).
    */
@@ -344,8 +349,10 @@ export default function GameMap(props: GameMapProps) {
     // Clic = demande de confirmation (design) : popup « Proposer X ? »
     // avec Valider / Annuler — la proposition n'est envoyée qu'au clic sur
     // « Valider » (elle appelle alors onGuess avec les coordonnées du clic).
+    // onMapClick est appelé à chaque clic (ex. fermer le panneau de résultat).
     map.on("click", (e) => {
       const current = clickRef.current;
+      current.onMapClick?.(e.lngLat.lat, e.lngLat.lng);
       if (current.active && current.onGuess) {
         openConfirmPopup(map, e.lngLat.lat, e.lngLat.lng);
       }
@@ -436,7 +443,9 @@ export default function GameMap(props: GameMapProps) {
       marker.remove();
     }
     guessMarkersRef.current = props.guesses.map((g, i) =>
-      new maplibregl.Marker({ element: createGuessMarker(i + 1, g.correct) })
+      new maplibregl.Marker({
+        element: createGuessMarker(i + 1, g.correct, g.distanceKm),
+      })
         .setLngLat([g.city.lng, g.city.lat])
         .addTo(map),
     );

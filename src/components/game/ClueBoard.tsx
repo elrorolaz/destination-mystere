@@ -5,6 +5,7 @@
 // se jouent sans nouvel indice.
 
 import type { PublicHint } from "@/lib/game-types";
+import { formatHintBody } from "@/lib/format/hint-body";
 
 const KEYS = ["A", "B", "C", "D"] as const;
 
@@ -29,7 +30,8 @@ export default function ClueBoard({
               <p className="dm-hint-title">
                 {key} — {hint.title}
               </p>
-              <p className="dm-hint-body">{hint.body}</p>
+              {/* Indice B : durées affichées en heures/minutes (« 1 h 47 »). */}
+              <p className="dm-hint-body">{formatHintBody(hint.key, hint.body)}</p>
             </div>
           );
         }
