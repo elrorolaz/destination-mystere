@@ -953,42 +953,35 @@ a {
   padding: 0.75rem 1.1rem;
 }
 
-/* --- Panneau « nouvel indice débloqué » --- */
+/* --- Indices A/B : logos des modes de transport --- */
 
-.dm-hint-popup {
-  text-align: center;
+.dm-hint-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-.dm-hint-popup-eyebrow {
-  margin: 0 0 0.3rem;
-  color: var(--dm-gold);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.dm-hint-popup-title {
-  margin: 0 0 0.7rem;
-  font-size: 1.3rem;
-  color: var(--dm-gold-strong);
-}
-
-.dm-hint-popup-body {
-  margin: 0 0 1.1rem;
-  padding: 0.8rem 1rem;
+.dm-hint-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   background: var(--dm-night);
   border: 1px solid var(--dm-border);
-  border-radius: 10px;
-  font-size: 1.02rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
   font-weight: 600;
-  color: var(--dm-foam);
-  line-height: 1.8;
-  word-break: break-word;
+  white-space: nowrap;
 }
 
-.dm-hint-popup .dm-btn {
-  width: 100%;
+.dm-hint-emoji {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.dm-hint-arrow {
+  color: var(--dm-mist);
+  font-weight: 700;
 }
 
 /* --- Divers --- */

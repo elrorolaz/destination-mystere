@@ -3,9 +3,9 @@
 // Écran de jeu (M3) : orchestre l'état public servi par /api/challenge, les
 // propositions via /api/guess, et les tracés de fin de partie.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { PublicChallengeState, PublicHint, SegmentTrace } from "@/lib/game-types";
+import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
 import GameMap from "@/components/map/GameMap";
 import {
@@ -17,7 +17,6 @@ import {
 import AttemptHistory from "./AttemptHistory";
 import ClueBoard from "./ClueBoard";
 import EndScreen from "./EndScreen";
-import HintPopup from "./HintPopup";
 import IntroModal from "./IntroModal";
 import LoadingOverlay from "./LoadingOverlay";
 
@@ -34,10 +33,6 @@ export default function GameScreen() {
   // Écran d'accueil (départ + durée + règles) : affiché à l'ouverture tant que
   // la partie est active et pas encore vu pour cette date (sessionStorage).
   const [introOpen, setIntroOpen] = useState(false);
-  // Panneau « nouvel indice » affiché au centre à chaque indice débloqué.
-  const [popupHint, setPopupHint] = useState<PublicHint | null>(null);
-  // Nombre d'indices déjà « vus » : pas de popup au rechargement de la page.
-  const hintsSeenRef = useRef<number | null>(null);
   // Incrémenté à chaque reroll : la carte remet ses épingles/tracés à zéro.
   const [resetKey, setResetKey] = useState(0);
   // Fond de carte choisi (design A/B/C) — persisté en localStorage.
@@ -80,8 +75,6 @@ export default function GameScreen() {
         const challenge = json as PublicChallengeState;
         setState(challenge);
         setEndHidden(false);
-        // État initial : on ne rejoue pas les popups des indices déjà là.
-        hintsSeenRef.current = challenge.hints.length;
         // Écran d'accueil à l'ouverture du jeu (partie active, jamais vu ce jour).
         if (challenge.status === "ACTIVE") {
           try {
@@ -103,22 +96,6 @@ export default function GameScreen() {
       cancelled = true;
     };
   }, [loadTraces]);
-
-  // À chaque nouvel indice débloqué (essai manqué) : popup au centre de
-  // l'écran. L'indice reste ensuite dans le panneau latéral (ClueBoard).
-  useEffect(() => {
-    if (!state) return;
-    const n = state.hints.length;
-    if (hintsSeenRef.current === null) {
-      hintsSeenRef.current = n;
-      return;
-    }
-    if (n > hintsSeenRef.current && state.status === "ACTIVE") {
-      const last = state.hints[n - 1];
-      if (last) setPopupHint(last);
-    }
-    hintsSeenRef.current = n;
-  }, [state]);
 
   const closeIntro = useCallback(() => {
     setIntroOpen(false);
@@ -201,10 +178,7 @@ export default function GameScreen() {
         setTraces([]);
         setEndHidden(false);
         setResetKey((k) => k + 1);
-        // Nouvel itinéraire chargé : on réaffiche l'écran d'accueil et on
-        // oublie les indices vus (aucune popup pour l'ancien défi).
-        hintsSeenRef.current = challenge.hints.length;
-        setPopupHint(null);
+        // Nouvel itinéraire chargé : on réaffiche l'écran d'accueil.
         setIntroOpen(true);
       }
     } catch {
@@ -353,11 +327,6 @@ export default function GameScreen() {
       {/* Écran d'accueil : départ + durée + règles (clic en-dehors = jouer). */}
       {introOpen && state.status === "ACTIVE" ? (
         <IntroModal state={state} onClose={closeIntro} />
-      ) : null}
-
-      {/* Panneau « nouvel indice » au centre à chaque déblocage. */}
-      {popupHint && state.status === "ACTIVE" ? (
-        <HintPopup hint={popupHint} onClose={() => setPopupHint(null)} />
       ) : null}
 
       {/* Progression pendant la (re)génération d'un itinéraire (🎲 reroll). */}
