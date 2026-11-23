@@ -1,0 +1,92 @@
+# Destination Mystère — déploiement sur serveur (Docker Compose).
+#
+#   cp .env.example .env        # puis renseigner CRON_SECRET, AUTH_SECRET, etc.
+#   docker compose --profile init run --rm init   # 1ʳᵉ fois : données + schéma + défi J/J+1
+#   docker compose up -d                          # lance db + app + cron
+#
+# L'app écoute sur http://localhost:3000 (ports "${PORT:-3000}:3000").
+# Le cron interne appelle POST /api/cron/generate-daily tous les jours à
+# 03:00 UTC (05:00 heure de Paris en hiver, 06:00 en été), protégé par
+# CRON_SECRET — comme vercel.json sur Vercel.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev}
+      POSTGRES_DB: destination_mystere
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d destination_mystere"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file: .env
+    environment:
+      # Base : service « db » du compose (et non localhost).
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/destination_mystere?sslmode=disable
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      NODE_ENV: production
+      # En prod : jamais de fixture de dev.
+      DEV_FIXTURE: "false"
+    volumes:
+      # data/ monté sur l'hôte : villes/aéroports générés par « init",
+      # logs des signalements persistants (data/logs/unrealistic-itineraries.jsonl).
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  cron:
+    image: alpine:3.20
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      APP_URL: http://app:3000
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET est requis dans .env pour le service cron}
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          now=$$(date -u +%s)
+          target=$$(date -u -d "03:00" +%s)
+          if [ $$target -le $$now ]; then target=$$((target + 86400)); fi
+          sleep $$((target - now))
+          echo "[$(date -u +%FT%TZ)] cron → POST /api/cron/generate-daily"
+          curl -fsS -X POST "$$APP_URL/api/cron/generate-daily" \
+            -H "Authorization: Bearer $$CRON_SECRET" || echo "échec cron (nouvel essai demain)"
+        done
+
+  # One-shot (profil « init") : prépare les données, pousse le schéma Prisma,
+  # importe les villes en base et génère le défi du jour + J+1.
+  init:
+    profiles: ["init"]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/destination_mystere?sslmode=disable
+      DEV_FIXTURE: "false"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - npm run prepare:data && npx prisma db push && npm run data:import && npm run challenge:generate
+
+volumes:
+  db_data:

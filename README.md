@@ -132,6 +132,70 @@ Méthodologie de réalisme du tirage aléatoire (identique à la production, cf.
 - **vérification** : chaque leg est rejoué à son horaire réel contre les GTFS avant publication ;
 - en fin de partie, les tronçons rail/urban suivent les **voies ferrées réelles** d'OpenStreetMap (Overpass : rail, tram, métro, light_rail) quand l'API est joignable, sinon ligne droite indicative.
 
+## 🚀 Déploiement sur serveur (Docker)
+
+L'application est prête à être servie par un serveur dédié (VPS) via Docker :
+`Dockerfile` (image Next.js « standalone » + client Prisma généré au
+`postinstall`), `docker-compose.yml` (PostgreSQL + app + cron interne +
+init des données) et `.dockerignore`.
+
+```bash
+# 0) Sur le serveur : installer Docker + le plugin compose
+#    (Debian/Ubuntu : apt install docker.io docker-compose-plugin)
+
+# 1) Cloner le dépôt et créer la configuration
+cd /chemin/du/serveur
+git clone <repo> destination-mystere && cd destination-mystere
+git checkout main
+cp .env.example .env
+# renseigner dans .env : CRON_SECRET, AUTH_SECRET (openssl rand -base64 32),
+# NEXT_PUBLIC_MAP_TILES_URL, éventuellement ROUTER/SNCF_API_TOKEN.
+# DEV_FIXTURE doit rester "false" en production.
+# POSTGRES_PASSWORD est optionnel (défaut « dev » côté compose).
+
+# 2) Première initialisation (one-shot) : télécharge les données, pousse le
+#    schéma Prisma, importe les villes, génère le défi du jour + J+1
+docker compose --profile init run --rm init
+
+# 3) Lancer le site (db + app sur le port 3000 + cron quotidien 05:00 Paris)
+docker compose up -d --build
+
+# 4) Ouvrir le pare-feu du serveur sur le port 3000
+#    (ufw allow 3000/tcp) et, si domaine : pointer un DNS A vers le serveur.
+#    Le site est alors accessible sur http://<IP-du-serveur>:3000
+#    (ou https://ton-domaine via un reverse proxy — voir ci-dessous).
+```
+
+Le **cron interne** (`service cron` du compose) appelle
+`POST /api/cron/generate-daily` chaque jour à 03:00 UTC (05:00/06:00 heure de
+Paris) avec `Authorization: Bearer $CRON_SECRET` — même rôle que `vercel.json`
+sur Vercel. Logs : `docker compose logs -f app` ; le cron peut aussi être
+déclenché à la main :
+`curl -X POST http://localhost:3000/api/cron/generate-daily -H "Authorization: Bearer $CRON_SECRET"`.
+
+**Reverse proxy HTTPS (recommandé en production)** — exemple Nginx :
+
+```nginx
+server {
+  listen 80; server_name ton-domaine.fr;
+  location / { proxy_pass http://127.0.0.1:3000; proxy_set_header Host $host; }
+}
+```
+puis `certbot --nginx -d ton-domaine.fr`. Le site devient
+`https://ton-domaine.fr`.
+
+**Persistance** : la base vit dans le volume Docker `db_data` ; le dossier
+`./data` de l'hôte est monté dans le conteneur (villes/aéroports générés par
+l'init, et `data/logs/unrealistic-itineraries.jsonl` — les signalements «
+itinéraire non réaliste » — persistent sur le serveur).
+
+**Mises à jour** : `git pull && docker compose up -d --build` (rebuild de
+l'image + redémarrage ; la base et les données sont conservées).
+
+> Alternative Vercel (sans serveur à gérer) : importer le dépôt GitHub sur
+> vercel.com, définir les mêmes variables d'environnement (voir
+> `.env.example`), et `vercel.json` déclenche le cron automatiquement.
+
 ## Tests
 
 ```bash

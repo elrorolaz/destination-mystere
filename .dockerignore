@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env.*
+! .env.example
+coverage
+*.tsbuildinfo
+data/tmp
+data/logs
+Dockerfile
+.dockerignore
+docker-compose.yml
+.vercel
