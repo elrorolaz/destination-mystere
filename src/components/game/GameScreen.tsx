@@ -204,6 +204,9 @@ export default function GameScreen() {
   }
 
   const potentialScore = SCORES[state.attemptCount] ?? 0;
+  // Essais restants et indicateur « dernier essai » (6 essais max, §1.2).
+  const remaining = Math.max(0, 6 - state.attemptCount);
+  const isLastAttempt = state.status === "ACTIVE" && remaining === 1;
 
   return (
     <div className="dm-wrap">
@@ -221,18 +224,41 @@ export default function GameScreen() {
         <span>
           Durée du trajet : <strong>{formatDuration(state.totalDurationMin)}</strong>
         </span>
-        <span className="dm-attempts" aria-label="Essais">
+        <span
+          className="dm-attempts"
+          aria-label={`Essais : ${state.attemptCount} utilisés sur 6, ${remaining} restant${remaining > 1 ? "s" : ""}`}
+        >
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <span
               key={i}
               className={
                 "dm-attempt-dot" +
                 (i < state.attemptCount ? " used" : "") +
+                (i === state.attemptCount && state.status === "ACTIVE" ? " next" : "") +
                 (i === 5 ? " last" : "")
               }
-            />
+              title={
+                i < state.attemptCount
+                  ? `Essai ${i + 1} utilisé`
+                  : i === 5
+                    ? "Essai 6 — le dernier"
+                    : `Essai ${i + 1}`
+              }
+            >
+              {i + 1}
+            </span>
           ))}
+          {state.status === "ACTIVE" ? (
+            <span className="dm-attempts-label">
+              {remaining} restant{remaining > 1 ? "s" : ""}
+            </span>
+          ) : null}
         </span>
+        {isLastAttempt ? (
+          <span className="dm-last-attempt" role="alert">
+            ⚠️ Dernier essai !
+          </span>
+        ) : null}
         <span>
           {state.status === "ACTIVE" ? (
             <>

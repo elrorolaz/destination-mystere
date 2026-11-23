@@ -165,21 +165,90 @@ a {
   gap: 6px;
 }
 
+/* Pastilles d'essais : numérotées et bien visibles pour suivre la partie. */
 .dm-attempt-dot {
-  width: 12px;
-  height: 12px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: transparent;
   border: 2px solid var(--dm-mist);
+  color: var(--dm-mist);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* Essai consommé : pastille pleine, numéro barré. */
 .dm-attempt-dot.used {
+  border-color: var(--dm-red);
+  background: var(--dm-red);
+  color: #fff;
+  text-decoration: line-through;
+}
+
+/* Prochain essai à jouer : mis en évidence (or). */
+.dm-attempt-dot.next {
   border-color: var(--dm-gold);
   background: var(--dm-gold-soft);
+  color: var(--dm-gold-strong);
+  box-shadow: 0 0 0 3px rgba(232, 180, 74, 0.25);
 }
 
+/* Le 6ᵉ essai : contour rouge. */
 .dm-attempt-dot.last {
   border-color: var(--dm-red);
+  color: var(--dm-red);
+}
+
+/* Dernier essai restant : pastille qui pulse en rouge. */
+.dm-attempt-dot.last.next {
+  background: var(--dm-red-soft);
+  color: #ff8a84;
+  font-weight: 800;
+  animation: dm-last-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes dm-last-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(228, 87, 79, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(228, 87, 79, 0);
+  }
+}
+
+.dm-attempts-label {
+  margin-left: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--dm-mist);
+  white-space: nowrap;
+}
+
+/* Bandeau « dernier essai » dans la barre de défi. */
+.dm-last-attempt {
+  background: var(--dm-red);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  animation: dm-blink 1.1s ease-in-out infinite;
+}
+
+@keyframes dm-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .dm-grid {
