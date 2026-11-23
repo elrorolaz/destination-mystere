@@ -51,9 +51,9 @@ function parseGeoNames(tsv: string): RawCity[] {
     const lat = Number(cols[4]);
     const lng = Number(cols[5]);
     const featureCode = cols[7] ?? "";
-    const country = cols[8];
+    const country = cols[8] ?? "";
     const population = Number(cols[14]);
-    if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (!id || !name || !country || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
     if (!Number.isFinite(population) || population <= 0) continue;
     if (!isInEuropeBBox(lat, lng)) continue;
     cities.push({ id, name, country, lat, lng, population, featureCode });

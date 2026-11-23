@@ -70,7 +70,7 @@ function ringFromArcIndexes(
 ): number[][] {
   const ring: number[][] = [];
   for (const idx of indexes) {
-    const arc = idx >= 0 ? arcs[idx] : arcs[~idx];
+    const arc = (idx >= 0 ? arcs[idx] : arcs[~idx]) ?? [];
     const reversed = idx < 0;
     const start = ring.length === 0 ? 0 : 1;
     for (let i = start; i < arc.length; i++) {
@@ -85,7 +85,7 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
 
-function roundRing(ring: number[][]): number[] {
+function roundRing(ring: number[][]): number[][] {
   return ring.map((p) => [round2(p[0] ?? 0), round2(p[1] ?? 0)]);
 }
 

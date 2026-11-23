@@ -41,11 +41,12 @@ describe("decodeGeohashBounds", () => {
   });
 
   it("toute précision englobe le point encodé", () => {
-    for (const [lat, lng] of [
+    const points: Array<[number, number]> = [
       [48.8566, 2.3522],
       [41.3874, 2.1686],
       [59.3293, 18.0686],
-    ]) {
+    ];
+    for (const [lat, lng] of points) {
       const hash = encodeGeohash(lat, lng, 6);
       const bounds = decodeGeohashBounds(hash);
       expect(lat).toBeGreaterThanOrEqual(bounds.latMin);

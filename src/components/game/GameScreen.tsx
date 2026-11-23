@@ -4,6 +4,7 @@
 // propositions via /api/guess, et les tracés de fin de partie.
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
 import GameMap from "@/components/map/GameMap";
@@ -172,9 +173,9 @@ export default function GameScreen() {
   return (
     <div className="dm-wrap">
       <header className="dm-topbar">
-        <a className="dm-logo" href="/">
+        <Link className="dm-logo" href="/">
           🧭 Destination <span>Mystère</span>
-        </a>
+        </Link>
         <span>Défi du {state.date}</span>
       </header>
 

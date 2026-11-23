@@ -77,7 +77,7 @@ export interface GuessInput {
 /** Réduction de ChallengeWithCities (Prisma) vers l'entrée pure du builder. */
 export function toChallengeInput(challenge: ChallengeWithCities): ChallengeInput {
   return {
-    journey: challenge.journey as Journey,
+    journey: challenge.journey as unknown as Journey,
     totalDurationMin: challenge.totalDurationMin,
     originCity: challenge.originCity,
     destinationCity: challenge.destinationCity,

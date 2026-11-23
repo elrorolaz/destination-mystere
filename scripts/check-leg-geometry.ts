@@ -12,8 +12,15 @@ async function main() {
   const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
   const from = args[0] ?? "49.2583,4.0317"; // Reims
   const to = args[1] ?? "48.8566,2.3522"; // Paris
-  const [fLat, fLng] = from.split(",").map(Number);
-  const [tLat, tLng] = to.split(",").map(Number);
+  const parseLatLng = (s: string): { lat: number; lng: number } => {
+    const [lat, lng] = s.split(",").map(Number);
+    if (lat === undefined || lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error(`Coordonnée invalide : "${s}" (attendu "lat,lng")`);
+    }
+    return { lat, lng };
+  };
+  const { lat: fLat, lng: fLng } = parseLatLng(from);
+  const { lat: tLat, lng: tLng } = parseLatLng(to);
   const timeIso = parisTimeIso(parisDateKey(new Date(Date.now() + 86400000)), "08:00");
 
   const router = new TransitousRouter();
