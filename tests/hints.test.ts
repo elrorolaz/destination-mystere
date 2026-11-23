@@ -114,11 +114,35 @@ describe("buildHints (fixture Reims → Vienne)", () => {
     );
   });
 
-  it("indice D : une étape desservie, jamais dans le dernier segment", () => {
-    // Wien Praterstern appartient au segment 9 (dernier) : exclu.
+  it("indice D : un POINT DE CORRESPONDANCE (jonction entre deux tronçons de transport)", () => {
+    // Jonctions du fixture : Paris-Est, Gare du Nord, Aéroport CDG 2,
+    // Vienne-Schwechat (le « to » du dernier tronçon = la destination, exclu).
+    // Choix déterministe = le candidat le plus central.
+    expect(buildHints(journey)[3]!.title).toBe("Point de correspondance");
     expect(buildHints(journey)[3]!.body).toBe(
-      "Le trajet s'arrête à Aulnay-sous-Bois",
+      "Le trajet passe par Aéroport CDG 2",
     );
+  });
+
+  it("indice D : jamais un arrêt de train, jamais le premier ni le dernier point", () => {
+    // Aulnay-sous-Bois et Wien Praterstern sont des arrêts intermédiaires de
+    // segments (intermediateStops) : ils ne doivent PAS être proposés.
+    const body = buildHints(journey)[3]!.body;
+    expect(body).not.toContain("Aulnay-sous-Bois");
+    expect(body).not.toContain("Wien Praterstern");
+    expect(body).not.toContain("Reims-Centre"); // premier point
+    expect(body).not.toContain("Wien Mitte"); // dernier point (destination)
+
+    // Cas minimal A → B → C avec correspondance en B : B est le seul candidat.
+    const small: Journey = {
+      totalDurationMin: 70,
+      segments: [
+        { index: 1, kind: "rail", modeDetail: "TER", lineOrCarrier: "TER", durationMin: 30, from: "A", to: "B" },
+        { index: 2, kind: "connection", modeDetail: "Correspondance", lineOrCarrier: "", durationMin: 5, from: "B", to: "B" },
+        { index: 3, kind: "rail", modeDetail: "TGV", lineOrCarrier: "TGV", durationMin: 35, from: "B", to: "C" },
+      ],
+    };
+    expect(buildHints(small)[3]!.body).toBe("Le trajet passe par B");
   });
 
   it("quatre indices au total : A, B, C, D (plus d'ancien indice « compagnies » ni « E »", () => {
@@ -141,7 +165,7 @@ describe("buildHints (fixture Reims → Vienne)", () => {
       ],
     };
     expect(buildHints(bare)[3]!.body).toBe(
-      "Tous les arrêts intermédiaires révéleraient la destination",
+      "Aucun point de correspondance intermédiaire sur ce trajet",
     );
   });
 

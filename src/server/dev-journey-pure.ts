@@ -20,6 +20,7 @@
 
 import { haversineKm } from "../lib/geo/haversine.ts";
 import { majorAirportFor, type AirportPick } from "./routing/flights.ts";
+import { mergeEdgeConnections } from "./routing/cleanup.ts";
 import type { Journey, JourneySegment } from "./routing/types.ts";
 
 // Aéroports IATA : source unique dans routing/flights.ts (§5.2).
@@ -460,11 +461,13 @@ export function buildRandomJourney(
     }
   }
 
-  const totalDurationMin = segments.reduce((sum, s) => sum + s.durationMin, 0);
+  // Nettoyage de bordure (au cas où) : mêmes règles que le planner réel.
+  const cleaned = mergeEdgeConnections(segments);
+  const totalDurationMin = cleaned.reduce((sum, s) => sum + s.durationMin, 0);
   return {
     zone,
     originCityId: origin.id,
     destCityId: dest.id,
-    journey: { totalDurationMin, segments },
+    journey: { totalDurationMin, segments: cleaned },
   };
 }

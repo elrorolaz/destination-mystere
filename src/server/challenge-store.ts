@@ -12,6 +12,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "../lib/db.ts";
 import { challengeDateFromKey, parisDateKey } from "../lib/paris-date.ts";
 import type { DailyJourney, Journey } from "./routing/types.ts";
+import { mergeEdgeConnections } from "./routing/cleanup.ts";
 import { pickRandomChallenge } from "./dev-journey.ts";
 
 export type ChallengeWithCities = Prisma.DailyChallengeGetPayload<{
@@ -160,9 +161,11 @@ async function seedFixtureChallenge(date: Date): Promise<ChallengeWithCities | n
     return null;
   }
 
+  // Nettoyage des correspondances de bordure (1–2 min) aussi sur le fixture.
+  const cleanedSegments = mergeEdgeConnections(fixture.segments);
   const journey: Journey = {
-    totalDurationMin: fixture.totalDurationMin,
-    segments: fixture.segments,
+    totalDurationMin: cleanedSegments.reduce((a, s) => a + s.durationMin, 0),
+    segments: cleanedSegments,
   };
   const journeyPayload = journey as unknown as Prisma.InputJsonValue;
 

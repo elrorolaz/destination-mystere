@@ -30,18 +30,25 @@ export function transportSegments(journey: Journey): JourneySegment[] {
 }
 
 /**
- * Indice D : une étape desservie du trajet — jamais la destination, ni
- * l'avant-dernière étape (§1.2). Les arrêts du dernier segment (celui qui
- * mène à la destination) sont exclus ; les « intermediateStops » d'un
- * segment ne contiennent de toute façon jamais ses extrémités. Choix
- * déterministe : le candidat le plus central de la liste dédupliquée.
+ * Indice D : un POINT DE CORRESPONDANCE du trajet — la jonction entre deux
+ * tronçons de transport (le « to » d'un segment de transport, identique au
+ * « from » du suivant) — et JAMAIS un simple arrêt d'un train, ni le premier
+ * point (le départ), ni le dernier (la destination). Choix déterministe : le
+ * candidat le plus central de la liste dédupliquée.
  */
-function intermediateStop(journey: Journey): string | null {
+function correspondencePoint(journey: Journey): string | null {
+  const segs = journey.segments;
+  const transportIdx = segs
+    .map((s, i) => (s.kind === "connection" ? -1 : i))
+    .filter((i) => i >= 0);
+  const lastTransport = transportIdx[transportIdx.length - 1] ?? -1;
+  const firstPoint = segs[0]?.from ?? "";
+  const lastPoint = segs[segs.length - 1]?.to ?? "";
   const candidates: string[] = [];
-  for (const segment of journey.segments.slice(0, -1)) {
-    for (const stop of segment.intermediateStops ?? []) {
-      candidates.push(stop);
-    }
+  for (const i of transportIdx) {
+    if (i === lastTransport) continue; // sa destination = le but, jamais révélé
+    const to = segs[i]?.to ?? "";
+    if (to && to !== firstPoint && to !== lastPoint) candidates.push(to);
   }
   if (candidates.length === 0) return null;
   const unique = [...new Set(candidates)];
@@ -55,7 +62,7 @@ export function buildHints(journey: Journey): Hint[] {
   const withDurations = segments.map(
     (s) => CATEGORY[s.kind as TransportMode] + " · " + s.durationMin + " min",
   );
-  const stop = intermediateStop(journey);
+  const hub = correspondencePoint(journey);
   return [
     { key: "A", title: "Modes de transport", body: categories.join("  →  ") },
     { key: "B", title: "Modes et durées", body: withDurations.join("  →  ") },
@@ -66,11 +73,11 @@ export function buildHints(journey: Journey): Hint[] {
     },
     {
       key: "D",
-      title: "Étape intermédiaire",
+      title: "Point de correspondance",
       body:
-        stop === null
-          ? "Tous les arrêts intermédiaires révéleraient la destination"
-          : "Le trajet s'arrête à " + stop,
+        hub === null
+          ? "Aucun point de correspondance intermédiaire sur ce trajet"
+          : "Le trajet passe par " + hub,
     },
   ];
 }

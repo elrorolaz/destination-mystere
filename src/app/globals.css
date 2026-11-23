@@ -1053,6 +1053,51 @@ a {
   font-weight: 700;
 }
 
+/* --- Question « itinéraire réaliste ? » (écran de résultat) --- */
+
+.dm-feedback {
+  margin: 0 0 0.9rem;
+  padding: 0.8rem 1rem;
+  border: 1px dashed var(--dm-border);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.dm-feedback-q {
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--dm-foam);
+}
+
+.dm-feedback-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.dm-feedback-yes {
+  border-color: rgba(63, 185, 132, 0.6);
+}
+
+.dm-feedback-yes:hover {
+  border-color: var(--dm-green);
+}
+
+.dm-feedback-no {
+  border-color: rgba(228, 87, 79, 0.6);
+}
+
+.dm-feedback-no:hover {
+  border-color: var(--dm-red);
+}
+
+.dm-feedback-thanks {
+  margin: 0;
+  color: var(--dm-mist);
+  font-size: 0.9rem;
+}
+
 /* --- Divers --- */
 
 .dm-end-tip {

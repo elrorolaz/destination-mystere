@@ -22,5 +22,8 @@ npm-debug.log*
 # Fichiers de travail de la maquette (régénérables via scripts/build-demo-data.ts)
 data/tmp/
 
+# Logs d'exploitation (signalements « itinéraire non réaliste », voir /api/feedback)
+data/logs/
+
 # Données dérivées volumineuses (~2,5 Mo) : régénérer via `npm run prepare:cities`
 data/cities/cities.europe.json

@@ -37,6 +37,7 @@ import {
   type RouterLeg,
 } from "./transitous.ts";
 import { verifyJourney, type VerificationReport } from "./verify.ts";
+import { mergeEdgeConnections } from "./cleanup.ts";
 import type { Journey } from "./types.ts";
 
 export interface PlanOptions {
@@ -325,15 +326,21 @@ export async function planJourney(
     );
   }
 
-  const segments = itineraryToSegments(best);
+  const rawSegments = itineraryToSegments(best);
   const journey: Journey = {
-    totalDurationMin: segments.reduce((a, s) => a + s.durationMin, 0),
-    segments,
+    totalDurationMin: rawSegments.reduce((a, s) => a + s.durationMin, 0),
+    segments: rawSegments,
   };
   const verified: VerificationReport =
     opts.verify === false
       ? { ok: true, reasons: [] }
       : await verifyJourney(journey, { origin, dest }, router, timeIso, airports);
+
+  // Nettoyage APRÈS vérification (la vérif rejoue chaque leg tel quel, les
+  // correspondances de bordure comprises) : les legs à pied de 1–2 min en
+  // début/fin (START → gare, gare → END) sont fondus dans le premier/dernier
+  // tronçon de transport — le trajet affiché reste portes-à-portes.
+  journey.segments = mergeEdgeConnections(rawSegments);
 
   return { journey, source: router.name, candidates, verified };
 }

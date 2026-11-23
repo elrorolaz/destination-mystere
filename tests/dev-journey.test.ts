@@ -129,11 +129,12 @@ describe("zone FR : 100 % rail, marques SNCF, découpage du long trajet", () => 
     expect(pick.journey.totalDurationMin).toBe(segs.reduce((a, s) => a + s.durationMin, 0));
   });
 
-  it("nourrit l'indice D (arrêt intermédiaire hors dernier segment, jamais la destination)", () => {
+  it("nourrit l'indice D (point de correspondance, jamais le départ ni la destination)", () => {
     const hints = unlockedHints(pick.journey, 4);
     expect(hints.map((h) => h.key)).toEqual(["A", "B", "C", "D"]);
-    expect(hints[3]!.body).toContain("s'arrête à");
-    expect(hints[3]!.body).not.toContain("Marseille");
+    expect(hints[3]!.body).toContain("passe par");
+    expect(hints[3]!.body).not.toContain("Marseille"); // jamais la destination
+    expect(hints[3]!.body).not.toContain("Reims"); // jamais le départ
   });
 });
 
