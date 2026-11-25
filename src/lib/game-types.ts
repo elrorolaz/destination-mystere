@@ -8,6 +8,12 @@
 
 export type PublicStatus = "ACTIVE" | "WON" | "LOST";
 
+/** Statut d'une manche (itinéraire) du match : PENDING = pas encore commencée. */
+export type PublicRouteStatus = PublicStatus | "PENDING";
+
+/** Nombre d'itinéraires joués chaque jour (match en 3 manches). */
+export const ROUTE_COUNT = 3;
+
 export interface PublicCityInfo {
   name: string;
   country: string;
@@ -44,9 +50,35 @@ export interface PublicJourneyView {
   segments: PublicSegmentView[];
 }
 
+/** Résultat public d'une manche (itinéraire) du match. */
+export interface PublicRouteResult {
+  /** 1..ROUTE_COUNT. */
+  index: number;
+  status: PublicRouteStatus;
+  attemptCount: number;
+  score: number;
+  /** Départ de l'itinéraire — révélé quand la manche est terminée. */
+  origin: PublicCityInfo | null;
+  /** Destination — révélée quand la manche est terminée (§7). */
+  destination: PublicCityInfo | null;
+  /** Distance du dernier essai à la destination (manche terminée). */
+  lastDistanceKm: number | null;
+}
+
 export interface PublicChallengeState {
   /** Clé AAAA-MM-JJ du défi, fuseau Europe/Paris. */
   date: string;
+  /** Manche en cours : 1..routeCount. */
+  routeIndex: number;
+  /** Nombre d'itinéraires du match (3). */
+  routeCount: number;
+  /** Vrai quand les 3 manches sont terminées → écran de résultat final. */
+  matchFinished: boolean;
+  /** Somme des scores des manches terminées. */
+  totalScore: number;
+  /** Un résumé par itinéraire (3 entrées). */
+  routeResults: PublicRouteResult[];
+  // --- état de la manche courante ---
   origin: PublicCityInfo;
   totalDurationMin: number;
   status: PublicStatus;
@@ -54,9 +86,9 @@ export interface PublicChallengeState {
   score: number;
   guesses: PublicGuess[];
   hints: PublicHint[];
-  /** Fin de partie uniquement (§7). */
+  /** Fin de manche uniquement (§7). */
   destination: PublicCityInfo | null;
-  /** Fin de partie uniquement (§7). */
+  /** Fin de manche uniquement (§7). */
   journey: PublicJourneyView | null;
 }
 
@@ -64,6 +96,8 @@ export interface PublicChallengeState {
 export interface SegmentTrace {
   index: number;
   kind: string;
+  /** Itinéraire d'origine (1..3) quand plusieurs itinéraires sont tracés. */
+  routeIndex?: number;
   /**
    * Vrai si la géométrie suit une infrastructure réelle : voies ferrées
    * OpenStreetMap pour rail/urban, arc aérien pour air. Faux pour une ligne

@@ -19,6 +19,8 @@ export interface UnrealisticReport {
   ts: string;
   /** Date du défi (AAAA-MM-JJ, fuseau Europe/Paris). */
   date: string;
+  /** Numéro de l'itinéraire dans la journée (1..3). */
+  routeIndex?: number;
   /** Cookie invité, si présent (corrélation optionnelle). */
   guestKey?: string;
   /** Commentaire libre du joueur (tronqué côté route). */

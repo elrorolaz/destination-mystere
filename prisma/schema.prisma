@@ -26,25 +26,46 @@ model City {
   hasTrainStation Boolean @default(false)
   geohash         String // précision 6, pour l'index spatial du snap
 
-  originChallenges       DailyChallenge[] @relation("origin")
-  destinationChallenges DailyChallenge[] @relation("destination")
+  routeOrigins      DailyRoute[] @relation("DailyRouteOrigin")
+  routeDestinations DailyRoute[] @relation("DailyRouteDestination")
 
   @@index([country])
   @@index([geohash])
 }
 
+// Une ligne par jour (fuseau Europe/Paris) : le « match » du jour est composé
+// de ROUTE_COUNT itinéraires (DailyRoute), joués l'un après l'autre.
+// Les colonnes originCityId/destCityId/journey/totalDurationMin sont
+// DÉPRÉCIÉES (avant le match en 3 itinéraires) : conservées nullable pour
+// préserver l'historique, plus utilisées par le code.
 model DailyChallenge {
-  challengeDate    DateTime @id // une seule ligne par jour (fuseau Europe/Paris)
+  challengeDate    DateTime @id
+  generatedAt      DateTime  @default(now())
+  originCityId     String?
+  destCityId       String?
+  journey          Json?
+  totalDurationMin Int?
+
+  routes       DailyRoute[]
+  gameSessions GameSession[]
+}
+
+// Un itinéraire du jour (3 par jour, routeIndex 1..3). Le journey complet est
+// stocké ici — JAMAIS envoyé au client avant la fin de la manche concernée.
+model DailyRoute {
+  challengeDate    DateTime
+  routeIndex       Int // 1..ROUTE_COUNT
   originCityId     String
   destCityId       String
-  journey          Json // segments complets — JAMAIS envoyé au client avant la fin
+  journey          Json // segments complets de CET itinéraire
   totalDurationMin Int
   generatedAt      DateTime @default(now())
 
-  originCity      City          @relation("origin", fields: [originCityId], references: [id])
-  destinationCity City          @relation("destination", fields: [destCityId], references: [id])
-  gameSessions    GameSession[]
+  challenge       DailyChallenge @relation(fields: [challengeDate], references: [challengeDate])
+  originCity      City           @relation("DailyRouteOrigin", fields: [originCityId], references: [id])
+  destinationCity City           @relation("DailyRouteDestination", fields: [destCityId], references: [id])
 
+  @@id([challengeDate, routeIndex])
   @@index([originCityId])
   @@index([destCityId])
 }
@@ -60,39 +81,63 @@ model User {
   stats        UserStats?
 }
 
+// GameSession = le MATCH du jour pour un joueur (les 3 itinéraires).
+// Une manche (un itinéraire) = une RouteSession.
 model GameSession {
   id            String    @id @default(cuid())
   userId        String? // M4 : compte authentifié
   guestKey      String? // M3 : invité (cookie httpOnly)
   challengeDate DateTime
-  status        String // ACTIVE | WON | LOST
-  attemptCount  Int       @default(0)
-  score         Int       @default(0)
+  status        String // ACTIVE tant qu'une manche est en cours, DONE à la fin du match
+  currentRouteIndex Int   @default(1) // manche en cours (1..3)
+  totalScore    Int       @default(0) // somme des scores des manches terminées
+  // DÉPRÉCIÉS (miroir de la manche courante avant le match en 3 itinéraires).
+  attemptCount  Int?
+  score         Int?
   startedAt     DateTime  @default(now())
   finishedAt    DateTime?
 
   user           User?          @relation(fields: [userId], references: [id])
   dailyChallenge DailyChallenge @relation(fields: [challengeDate], references: [challengeDate])
-  guesses        Guess[]
+  routeSessions  RouteSession[]
 
-  // Anti-triche : une seule partie par joueur et par jour (§7).
+  // Anti-triche : une seule partie (match) par joueur et par jour (§7).
   @@unique([userId, challengeDate])
   @@unique([guestKey, challengeDate])
   @@index([challengeDate, status])
 }
 
-model Guess {
-  id            String  @id @default(cuid())
-  sessionId     String
-  attemptNumber Int
-  clickLat      Float // le client n'envoie QUE lat/lng (§7)
-  clickLng      Float
-  snappedCityId String // ville rattachée par le serveur
-  correct       Boolean
+// Une manche = un itinéraire du jour joué par le match (GameSession).
+model RouteSession {
+  id           String    @id @default(cuid())
+  sessionId    String
+  routeIndex   Int // 1..3 : quel itinéraire du jour
+  status       String // ACTIVE | WON | LOST
+  attemptCount Int       @default(0)
+  score        Int       @default(0)
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
 
   session GameSession @relation(fields: [sessionId], references: [id])
+  guesses Guess[]
 
+  @@unique([sessionId, routeIndex])
   @@index([sessionId])
+}
+
+model Guess {
+  id             String  @id @default(cuid())
+  routeSessionId String
+  sessionId      String? // DÉPRÉCIÉ (avant RouteSession) — conservé pour l'historique
+  attemptNumber  Int
+  clickLat       Float // le client n'envoie QUE lat/lng (§7)
+  clickLng       Float
+  snappedCityId  String // ville rattachée par le serveur
+  correct        Boolean
+
+  routeSession RouteSession @relation(fields: [routeSessionId], references: [id])
+
+  @@index([routeSessionId])
 }
 
 model UserStats {

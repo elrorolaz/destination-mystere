@@ -55,6 +55,11 @@ export interface SelectPairOptions {
   forceZone?: ChallengeZone;
   /** Force allowAir (réessais : on garde le mode avion/terrestre tiré). */
   forceAllowAir?: boolean;
+  /**
+   * Paires « originId>destId » déjà prises par un autre itinéraire du même
+   * jour : jamais réutilisées (les 3 itinéraires du jour sont distincts).
+   */
+  exclude?: ReadonlySet<string>;
 }
 
 /**
@@ -98,6 +103,7 @@ export function selectCityPair(
     const origin = pick(rng, origins);
     const dest = pick(rng, dests);
     if (!origin || !dest || dest.id === origin.id) continue;
+    if (opts.exclude?.has(origin.id + ">" + dest.id)) continue;
     const km = haversineKm(origin.lat, origin.lng, dest.lat, dest.lng);
     if (km < minKm || km > maxKm) continue;
     return { origin, dest, zone, allowAir };
@@ -111,6 +117,8 @@ export interface GeneratedChallenge extends DailyJourney {
   zone: ChallengeZone;
   /** false = itinéraire 100 % terrestre (40 % des tirages, NO_AIR_PROBABILITY). */
   allowAir: boolean;
+  /** Slot de l'itinéraire dans la journée (1..ROUTE_COUNT). */
+  routeIndex: number;
   /** Motifs de rejet des paires précédentes (vide si la 1ʳᵉ passe). */
   rejected: string[];
 }
@@ -119,13 +127,22 @@ export interface GenerateOptions {
   /** Nombre max de paires seedées à essayer (chacune doit être vérifiée). */
   maxPairs?: number;
   router?: Router;
+  /**
+   * Slot de l'itinéraire dans la journée (1..ROUTE_COUNT) : la graine du PRNG
+   * devient « date#r<slot> » pour slot > 1, afin que chaque itinéraire du jour
+   * soit déterministe ET distinct des autres.
+   */
+  slot?: number;
+  /** Paires déjà prises par les autres itinéraires du même jour. */
+  exclude?: ReadonlySet<string>;
 }
 
 /**
  * Génère (sans stocker) le défi d'une date : paires déterministes (seed =
- * date) essayées dans l'ordre, itinéraire calculé par le routeur RÉEL puis
- * VÉRIFIÉ (existence + optimalité, verify.ts) ; la première paire vérifiée
- * gagne. Lance une erreur sinon — le cron bascule alors sur le repli (fixture).
+ * date, ou date#r<slot> pour les itinéraires suivants) essayées dans l'ordre,
+ * itinéraire calculé par le routeur RÉEL puis VÉRIFIÉ (existence + optimalité,
+ * verify.ts) ; la première paire vérifiée gagne. Lance une erreur sinon —
+ * l'appelant bascule alors sur le repli (fixture).
  */
 export async function generateDailyChallenge(
   dateKey: string,
@@ -138,6 +155,10 @@ export async function generateDailyChallenge(
   const airports = await getMajorAirports();
   const maxPairs = opts.maxPairs ?? 10;
   const rejected: string[] = [];
+  const slot = opts.slot ?? 1;
+  // Graine par itinéraire : slot 1 garde la seed « date » historique, les
+  // suivants prennent « date#r<slot> » (déterministe, distinct).
+  const seedKey = slot > 1 ? dateKey + "#r" + slot : dateKey;
 
   const router = opts.router ?? defaultRouter();
   // Zone et mode avion tirés au premier essai, puis FORCÉS pour les réessais :
@@ -146,10 +167,11 @@ export async function generateDailyChallenge(
   let firstZone: ChallengeZone | null = null;
   let firstAllowAir: boolean | null = null;
   for (let attempt = 0; attempt < maxPairs; attempt++) {
-    const pair = selectCityPair(cache.cities, dateKey, attempt, {
+    const pair = selectCityPair(cache.cities, seedKey, attempt, {
       isRef: (id) => cache.clusters.isRef(id),
       forceZone: firstZone ?? undefined,
       forceAllowAir: firstAllowAir ?? undefined,
+      exclude: opts.exclude,
     });
     if (!pair) break;
     if (firstZone === null) {
@@ -183,6 +205,7 @@ export async function generateDailyChallenge(
         source: planned.source + "+verified",
         zone: pair.zone,
         allowAir: pair.allowAir,
+        routeIndex: slot,
         rejected,
       };
     } catch (err) {
@@ -194,19 +217,30 @@ export async function generateDailyChallenge(
   );
 }
 
-/** Upsert du défi en base (une ligne par date, §6.4). */
-export async function upsertDailyChallenge(
-  challenge: DailyJourney,
+/**
+ * Upsert d'un itinéraire du jour en base : une ligne DailyRoute par
+ * (date, routeIndex), la ligne DailyChallenge (calendrier) étant créée au
+ * besoin (§6.4).
+ */
+export async function upsertDailyRoute(
+  challenge: DailyJourney & { routeIndex?: number },
   date: Date,
 ): Promise<void> {
+  const routeIndex = challenge.routeIndex ?? 1;
   const journeyPayload = {
     totalDurationMin: challenge.totalDurationMin,
     segments: challenge.segments,
   } as unknown as Prisma.InputJsonValue;
   await db.dailyChallenge.upsert({
     where: { challengeDate: date },
+    create: { challengeDate: date },
+    update: {},
+  });
+  await db.dailyRoute.upsert({
+    where: { challengeDate_routeIndex: { challengeDate: date, routeIndex } },
     create: {
       challengeDate: date,
+      routeIndex,
       originCityId: challenge.originCityId,
       destCityId: challenge.destCityId,
       journey: journeyPayload,

@@ -1,24 +1,24 @@
-// POST /api/cron/generate-daily — génère le défi du jour (M2, spécification §6).
+// POST /api/cron/generate-daily — génère les TROIS itinéraires du jour (M2+,
+// spécification §6).
 //
 //   - protégé par CRON_SECRET : « Authorization: Bearer <CRON_SECRET> » ;
 //   - génère AUJOURD'HUI (Europe/Paris) et DEMAIN (J+1 en avance, §6.5) ;
-//   - idempotent : une date qui a déjà un défi est laissée telle quelle
-//     (relancer deux fois donne le même duo de villes, §6.2) ;
-//   - repli : si la génération échoue (API SNCF indisponible, etc.), le
-//     fixture data/fixtures/demo-journey.json est chargé à la place (§6.5).
+//   - idempotent : un itinéraire (date, n°) déjà présent est laissé tel quel
+//     (relancer deux fois donne les mêmes duos de villes, §6.2) ;
+//   - repli : si la génération d'un itinéraire échoue (API indisponible,
+//     etc.), le fixture data/fixtures/demo-journey.json est chargé à sa place
+//     (§6.5).
 //
 // Déclenchement : vercel.json (cron 05:00 Europe/Paris), GitHub Actions ou
 // node-cron sur VPS. En local : npm run challenge:generate.
 
 import { NextRequest, NextResponse } from "next/server";
 import { challengeDateFromKey, parisDateKey } from "../../../../lib/paris-date.ts";
+import { ROUTE_COUNT } from "../../../../lib/game-types.ts";
 import {
-  generateDailyChallenge,
-  upsertDailyChallenge,
-} from "../../../../server/daily-challenge.ts";
-import {
-  fallbackToFixtureChallenge,
-  getTodayChallenge,
+  generateRouteForSlot,
+  getRoute,
+  getTodayRoutes,
 } from "../../../../server/challenge-store.ts";
 import { db } from "../../../../lib/db.ts";
 
@@ -60,37 +60,32 @@ export async function POST(req: NextRequest) {
   const results = [];
   for (const dateKey of dateKeys) {
     const date = challengeDateFromKey(dateKey);
-    const existing = await db.dailyChallenge.findUnique({ where: { challengeDate: date } });
-    if (existing) {
-      results.push({ date: dateKey, status: "exists" });
-      continue;
-    }
-    try {
-      const challenge = await generateDailyChallenge(dateKey);
-      await upsertDailyChallenge(challenge, date);
-      results.push({
-        date: dateKey,
-        status: "created",
-        source: challenge.source,
-        zone: challenge.zone,
-        totalDurationMin: challenge.totalDurationMin,
-        segments: challenge.segments.length,
-      });
-    } catch (err) {
-      console.error("generate-daily " + dateKey + " : échec, repli sur le fixture", err);
-      const fallback = await fallbackToFixtureChallenge(date);
-      if (fallback) {
-        results.push({
-          date: dateKey,
-          status: "fallback",
-          origin: fallback.originCity.name,
-          destination: fallback.destinationCity.name,
-          totalDurationMin: fallback.totalDurationMin,
+    await db.dailyChallenge.upsert({
+      where: { challengeDate: date },
+      create: { challengeDate: date },
+      update: {},
+    });
+    const dateResults = [];
+    for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
+      const existing = await getRoute(date, slot);
+      if (existing) {
+        dateResults.push({ route: slot, status: "exists" });
+        continue;
+      }
+      const route = await generateRouteForSlot(date, dateKey, slot);
+      if (route) {
+        dateResults.push({
+          route: slot,
+          status: "created",
+          origin: route.originCity.name,
+          destination: route.destinationCity.name,
+          totalDurationMin: route.totalDurationMin,
         });
       } else {
-        results.push({ date: dateKey, status: "error", error: "génération et repli ont échoué" });
+        dateResults.push({ route: slot, status: "error", error: "génération et repli ont échoué" });
       }
     }
+    results.push({ date: dateKey, routes: dateResults });
   }
   return NextResponse.json({ ok: true, results });
 }
@@ -98,16 +93,15 @@ export async function POST(req: NextRequest) {
 /** GET de santé : indique si le cron est configuré (sans le révéler). */
 export async function GET() {
   const configured = typeof process.env.CRON_SECRET === "string" && process.env.CRON_SECRET.length > 0;
-  const today = await getTodayChallenge().catch(() => null);
+  const routes = await getTodayRoutes().catch(() => []);
   return NextResponse.json({
     cronConfigured: configured,
-    todayChallenge: today
-      ? {
-          date: parisDateKey(),
-          origin: today.originCity.name,
-          destination: today.destinationCity.name,
-          totalDurationMin: today.totalDurationMin,
-        }
-      : null,
+    todayRoutes: routes.map((r) => ({
+      date: parisDateKey(),
+      routeIndex: r.routeIndex,
+      origin: r.originCity.name,
+      destination: r.destinationCity.name,
+      totalDurationMin: r.totalDurationMin,
+    })),
   });
 }

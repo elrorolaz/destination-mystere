@@ -1,12 +1,12 @@
-// POST /api/dev/reroll — régénère un itinéraire de test aléatoire pour
-// aujourd'hui et efface les parties du jour (M3, développement uniquement).
+// POST /api/dev/reroll — régénère TROIS itinéraires de test aléatoires pour
+// aujourd'hui et efface les parties du jour (M3+, développement uniquement).
 // Réservé à DEV_FIXTURE=random : en mode « true » (fixture figé) ou en
 // production, aucun sens — 403.
 
 import { NextResponse } from "next/server";
 import {
   devFixtureMode,
-  rerollTodayChallenge,
+  rerollTodayRoutes,
 } from "../../../../server/challenge-store.ts";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +19,8 @@ export async function POST() {
     );
   }
   try {
-    const challenge = await rerollTodayChallenge();
-    if (!challenge) {
+    const routes = await rerollTodayRoutes();
+    if (routes.length === 0) {
       return NextResponse.json(
         { error: "Génération impossible (villes en base ?)" },
         { status: 500 },
@@ -28,10 +28,12 @@ export async function POST() {
     }
     return NextResponse.json({
       ok: true,
-      date: challenge.challengeDate,
-      origin: challenge.originCity.name,
-      destination: challenge.destinationCity.name,
-      totalDurationMin: challenge.totalDurationMin,
+      routes: routes.map((r) => ({
+        routeIndex: r.routeIndex,
+        origin: r.originCity.name,
+        destination: r.destinationCity.name,
+        totalDurationMin: r.totalDurationMin,
+      })),
     });
   } catch (err) {
     console.error("POST /api/dev/reroll :", err);

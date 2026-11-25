@@ -1,23 +1,18 @@
-// DELETE /api/session — rejouer la journée du jour (M3).
-// Réservé au développement (DEV_FIXTURE=true ou random) : en production,
-// une partie finie reste finie pour la journée (§6).
+// DELETE /api/session — nouvelle partie : supprime le match du jour (les 3
+// manches et leurs propositions) pour pouvoir rejouer les 3 itinéraires du
+// jour (bouton « 🔄 Nouvelle partie » de l'écran de résultat final).
+// Les itinéraires du jour eux-mêmes ne changent pas (défi identique pour
+// tous, §6.2) ; en développement, 🎲 /api/dev/reroll en génère de nouveaux.
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { resetTodaysSession } from "../../../server/game-service.ts";
-import { devFixtureMode } from "../../../server/challenge-store.ts";
 
 export const dynamic = "force-dynamic";
 
 const GUEST_COOKIE = "dm_guest";
 
 export async function DELETE() {
-  if (!devFixtureMode()) {
-    return NextResponse.json(
-      { error: "Rejouer n'est possible qu'en développement (DEV_FIXTURE=true ou random)" },
-      { status: 403 },
-    );
-  }
   const store = await cookies();
   const guestKey = store.get(GUEST_COOKIE)?.value;
   if (!guestKey) {

@@ -1140,3 +1140,137 @@ a {
 .dm-panel .dm-card[aria-label="Indices"] .dm-hint-body {
   font-size: 0.85rem;
 }
+
+/* ---------- Match en 3 itinéraires (M3+) ---------- */
+
+/* Indicateur « itinéraire X/3 » et score total dans la barre de défi. */
+.dm-route-indicator {
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: var(--dm-gold-soft);
+  border: 1px solid rgba(232, 180, 74, 0.4);
+  white-space: nowrap;
+}
+
+.dm-total-score {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--dm-mist);
+}
+
+.dm-total-score strong {
+  color: var(--dm-gold-strong);
+}
+
+/* Badge « itinéraire X/3 » en tête du panneau de résultat de manche. */
+.dm-end-route-badge {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--dm-gold-strong);
+}
+
+/* Actions du panneau de manche : partager + passer au suivant. */
+.dm-end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.dm-next-route {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+/* Bouton flottant « itinéraire suivant » (panneau masqué, carte visible) :
+   placé au-dessus du bouton « voir le résultat » quand les deux coexistent. */
+.dm-float-actions {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.dm-float-actions .dm-end-reopen {
+  position: static;
+}
+
+.dm-next-float {
+  border-color: rgba(63, 185, 132, 0.6);
+  color: #7ee2a0;
+}
+
+.dm-next-float:hover {
+  border-color: var(--dm-green);
+}
+
+/* ---------- Panneau de résultat final (match en 3 itinéraires) ---------- */
+
+.dm-final-card {
+  width: min(680px, 94vw);
+}
+
+.dm-final-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+  font-size: 0.92rem;
+}
+
+.dm-final-table th {
+  text-align: left;
+  color: var(--dm-gold-strong);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid var(--dm-border);
+}
+
+.dm-final-table td {
+  padding: 0.5rem 0.45rem;
+  border-bottom: 1px solid var(--dm-border);
+  vertical-align: top;
+}
+
+/* Pastille numérotée colorée : distingue chaque itinéraire (comme sur la carte). */
+.dm-route-badge {
+  display: inline-flex;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: #231a05;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.dm-final-route strong {
+  color: var(--dm-foam);
+}
+
+.dm-final-status {
+  color: var(--dm-mist);
+  font-size: 0.84rem;
+}
+
+.dm-final-total {
+  margin: 0.9rem 0 0.4rem;
+  text-align: center;
+  font-size: 1.05rem;
+  color: var(--dm-mist);
+}
+
+.dm-final-total strong {
+  color: var(--dm-gold-strong);
+  font-size: 1.6rem;
+  margin: 0 0.25rem;
+}

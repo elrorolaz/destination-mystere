@@ -1,15 +1,21 @@
-// GET /api/route-geometry — tracés de fin de partie (M3).
-// Refusé tant que la partie est ACTIVE (§7) : on ne trace rien avant la fin.
+// GET /api/route-geometry — tracés de fin de manche / de match (M3+).
+//
+//   - ?route=N (1..3, défaut = manche courante du match) : tracé de
+//     l'itinéraire N, autorisé seulement si la manche N est terminée (§7) ;
+//   - ?all=1 : les TROIS itinéraires du match (avec routeIndex sur chaque
+//     tracé, pour les distinguer sur la carte), autorisé seulement si le
+//     match est terminé (3 manches finies).
+//
 // Segments rail/urban : voies ferrées réelles via railPath (Overpass,
 // séquentiel pour ménager l'API). Air : arc Bézier. Connection : ligne droite.
 
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db.ts";
 import { haversineKm } from "../../../lib/geo/haversine.ts";
 import { challengeDateFromKey, parisDateKey } from "../../../lib/paris-date.ts";
-import type { SegmentTrace } from "../../../lib/game-types.ts";
-import { getTodayChallenge } from "../../../server/challenge-store.ts";
+import { ROUTE_COUNT, type SegmentTrace } from "../../../lib/game-types.ts";
+import { getRoute } from "../../../server/challenge-store.ts";
 import { airArc, railPath, smoothArc, type LatLon } from "../../../server/routing/rail-geometry.ts";
 import { defaultRouter } from "../../../server/routing/router.ts";
 import type { Journey } from "../../../server/routing/types.ts";
@@ -71,42 +77,9 @@ async function routerLegGeometry(
   return null;
 }
 
-export async function GET() {
-  const store = await cookies();
-  const guestKey = store.get(GUEST_COOKIE)?.value;
-  if (!guestKey) {
-    return NextResponse.json(
-      { error: "Session introuvable, rechargez la page" },
-      { status: 400 },
-    );
-  }
-
-  const session = await db.gameSession.findUnique({
-    where: {
-      guestKey_challengeDate: {
-        guestKey,
-        challengeDate: challengeDateFromKey(parisDateKey()),
-      },
-    },
-  });
-  if (!session) {
-    return NextResponse.json({ error: "Aucune partie en cours" }, { status: 404 });
-  }
-  if (session.status === "ACTIVE") {
-    return NextResponse.json(
-      { error: "Le tracé n'est révélé qu'à la fin de la partie" },
-      { status: 403 },
-    );
-  }
-
-  const challenge = await getTodayChallenge();
-  if (!challenge) {
-    return NextResponse.json({ error: "Aucun défi pour aujourd'hui" }, { status: 503 });
-  }
-
-  const journey = challenge.journey as unknown as Journey;
+/** Tracés d'un journey (boucle séquentielle volontaire : un Overpass à la fois). */
+async function tracesForJourney(journey: Journey, routeIndex?: number): Promise<SegmentTrace[]> {
   const traces: SegmentTrace[] = [];
-  // Boucle séquentielle volontaire : un appel Overpass à la fois.
   for (const segment of journey.segments) {
     const from = segment.fromCoord;
     const to = segment.toCoord;
@@ -142,10 +115,81 @@ export async function GET() {
     traces.push({
       index: segment.index,
       kind: segment.kind,
+      routeIndex,
       followsTracks,
       geometry,
     });
   }
+  return traces;
+}
 
+export async function GET(req: NextRequest) {
+  const store = await cookies();
+  const guestKey = store.get(GUEST_COOKIE)?.value;
+  if (!guestKey) {
+    return NextResponse.json(
+      { error: "Session introuvable, rechargez la page" },
+      { status: 400 },
+    );
+  }
+
+  const date = challengeDateFromKey(parisDateKey());
+  const session = await db.gameSession.findUnique({
+    where: { guestKey_challengeDate: { guestKey, challengeDate: date } },
+  });
+  if (!session) {
+    return NextResponse.json({ error: "Aucune partie en cours" }, { status: 404 });
+  }
+  const routeSessions = await db.routeSession.findMany({
+    where: { sessionId: session.id },
+    select: { routeIndex: true, status: true },
+  });
+  const statusOf = (slot: number): string | null =>
+    routeSessions.find((r) => r.routeIndex === slot)?.status ?? null;
+
+  const params = req.nextUrl.searchParams;
+  const wantAll = params.get("all") === "1";
+  const routeParam = Number(params.get("route") ?? session.currentRouteIndex);
+  const routeIndex =
+    Number.isInteger(routeParam) && routeParam >= 1 && routeParam <= ROUTE_COUNT
+      ? routeParam
+      : session.currentRouteIndex;
+
+  if (wantAll) {
+    // Les 3 itinéraires ne sont tracés qu'une fois le match terminé (§7).
+    const allDone = [1, 2, 3].every((slot) => {
+      const st = statusOf(slot);
+      return st !== null && st !== "ACTIVE";
+    });
+    if (!allDone) {
+      return NextResponse.json(
+        { error: "Les 3 itinéraires ne sont révélés qu'à la fin du match" },
+        { status: 403 },
+      );
+    }
+    const traces: SegmentTrace[] = [];
+    for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
+      const route = await getRoute(date, slot);
+      if (!route) continue;
+      const journey = route.journey as unknown as Journey;
+      traces.push(...(await tracesForJourney(journey, slot)));
+    }
+    return NextResponse.json({ traces });
+  }
+
+  // Tracé d'une seule manche : autorisée seulement si elle est terminée.
+  const status = statusOf(routeIndex);
+  if (status === null || status === "ACTIVE") {
+    return NextResponse.json(
+      { error: "Le tracé n'est révélé qu'à la fin de l'itinéraire" },
+      { status: 403 },
+    );
+  }
+  const route = await getRoute(date, routeIndex);
+  if (!route) {
+    return NextResponse.json({ error: "Aucun itinéraire pour ce numéro" }, { status: 503 });
+  }
+  const journey = route.journey as unknown as Journey;
+  const traces = await tracesForJourney(journey, routeIndex);
   return NextResponse.json({ traces });
 }

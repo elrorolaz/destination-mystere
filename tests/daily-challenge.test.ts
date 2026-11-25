@@ -129,4 +129,43 @@ describe("selectCityPair — déterminisme et contraintes", () => {
     const noStation = cities.filter((c) => !c.hasTrainStation);
     expect(selectCityPair(noStation, "2026-11-21")).toBeNull();
   });
+
+  it("exclude : une paire déjà prise par un autre itinéraire du jour n'est jamais re-tirée", () => {
+    const key = "2026-11-21";
+    const first = selectCityPair(cities, key, 0);
+    expect(first).not.toBeNull();
+    const excluded = new Set([first!.origin.id + ">" + first!.dest.id]);
+    const taken = first!.origin.id + ">" + first!.dest.id;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const p = selectCityPair(cities, key, attempt, { exclude: excluded });
+      if (p) expect(p.origin.id + ">" + p.dest.id).not.toBe(taken);
+    }
+  });
+
+  it("les graines par slot (date#rN) produisent des tirages déterministes et variés", () => {
+    // Même seed → même duo ; seeds de slots différents → tirages indépendants.
+    const a1 = selectCityPair(cities, "2026-11-21#r2", 0);
+    const a2 = selectCityPair(cities, "2026-11-21#r2", 0);
+    expect(a1).not.toBeNull();
+    expect(a1!.origin.id).toBe(a2!.origin.id);
+    expect(a1!.dest.id).toBe(a2!.dest.id);
+
+    // Sur 30 dates, les 3 slots (avec exclude alimenté au fur et à mesure)
+    // ne se répètent jamais dans une même journée.
+    let distinctDays = 0;
+    for (let day = 1; day <= 30; day++) {
+      const key = "2026-12-" + String(day).padStart(2, "0");
+      const seen = new Set<string>();
+      let ok = true;
+      for (const seed of [key, key + "#r2", key + "#r3"]) {
+        const p = selectCityPair(cities, seed, 0, { exclude: seen });
+        if (!p) continue;
+        const pairKey = p.origin.id + ">" + p.dest.id;
+        if (seen.has(pairKey)) ok = false;
+        seen.add(pairKey);
+      }
+      if (ok) distinctDays++;
+    }
+    expect(distinctDays).toBe(30);
+  });
 });

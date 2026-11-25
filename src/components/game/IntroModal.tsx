@@ -41,7 +41,8 @@ export default function IntroModal({
         <p className="dm-intro-eyebrow">🧭 Défi du {state.date}</p>
         <h2 className="dm-intro-title">Où mène cet itinéraire ?</h2>
         <p className="dm-intro-journey">
-          Départ : <strong>{state.origin.name}</strong> ({state.origin.country})
+          Itinéraire <strong>{state.routeIndex} / {state.routeCount}</strong> — départ :{" "}
+          <strong>{state.origin.name}</strong> ({state.origin.country})
           <br />
           Durée du trajet :{" "}
           <strong>{formatDuration(state.totalDurationMin)}</strong> portes-à-portes
@@ -62,6 +63,10 @@ export default function IntroModal({
           <li>
             🏆 Jusqu&apos;à <strong>1000 points</strong> au 1ᵉʳ essai, puis score de
             proximité si les 6 essais sont épuisés.
+          </li>
+          <li>
+            🧭 La journée se joue en <strong>{state.routeCount} itinéraires</strong> :
+            le score final est le total des trois.
           </li>
         </ul>
         <button type="button" className="dm-btn dm-btn-primary" onClick={onClose}>

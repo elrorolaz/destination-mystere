@@ -1,7 +1,10 @@
 "use client";
 
-// Écran de fin de partie (M3) : destination, score, historique en carrés,
-// détail de l'itinéraire et texte de partage.
+// Écran de résultat d'une MANCHE (un itinéraire du match, M3+) : destination,
+// score de la manche, historique en carrés, détail de l'itinéraire, partage.
+// Le seul bouton d'action proposé est « passer au suivant » (ou « voir le
+// résultat final » après le 3e itinéraire) — jamais « rejouer » ici.
+// La croix ✕ (ou un clic sur la carte) masque le panneau pour voir le tracé.
 
 import { useState } from "react";
 import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
@@ -18,17 +21,18 @@ const KIND_EMOJI: Record<string, string> = {
 export default function EndScreen({
   state,
   traces,
-  onReplay,
+  onNext,
+  nextLabel,
   onClose,
-  onReroll,
 }: {
   state: PublicChallengeState;
   traces: SegmentTrace[];
-  onReplay: () => void;
-  /** Croix ✕ : masque l'écran pour voir l'itinéraire tracé sur la carte. */
+  /** Passe à l'itinéraire suivant (ou ouvre le résultat final si 3e). */
+  onNext: () => void;
+  /** Libellé du bouton principal. */
+  nextLabel: string;
+  /** Croix ✕ : masque l'écran pour voir l'itinéraire sur la carte. */
   onClose: () => void;
-  /** 🎲 Nouvel itinéraire de test (développement uniquement). */
-  onReroll?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   // Signalement « itinéraire réaliste ? » : null = pas encore répondu,
@@ -43,11 +47,13 @@ export default function EndScreen({
   const shareText =
     "🧭 Itinaris " +
     state.date +
+    " — itinéraire " + state.routeIndex + "/" + state.routeCount +
     " " +
     (squares || "—") +
     " " +
     state.score +
-    " pts";
+    " pts" +
+    (state.matchFinished ? " · total " + state.totalScore + " pts" : "");
 
   const copyShare = async () => {
     try {
@@ -60,13 +66,18 @@ export default function EndScreen({
   };
 
   // « Non, cet itinéraire n'est pas réaliste » → journalisé serveur dans
-  // data/logs/unrealistic-itineraries.jsonl. « Oui » : aucun envoi.
+  // data/logs/unrealistic-itineraries.jsonl (avec le n° d'itinéraire).
+  // « Oui » : aucun envoi.
   const reportUnrealistic = async () => {
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ realistic: false, date: state.date }),
+        body: JSON.stringify({
+          realistic: false,
+          date: state.date,
+          route: state.routeIndex,
+        }),
       });
       setFeedback(res.ok ? "reported" : "error");
     } catch {
@@ -75,7 +86,7 @@ export default function EndScreen({
   };
 
   return (
-    <div className="dm-end-panel" role="dialog" aria-label="Résultat de la partie">
+    <div className="dm-end-panel" role="dialog" aria-label={`Résultat de l'itinéraire ${state.routeIndex}`}>
       <div className="dm-end-card">
         <button
           className="dm-end-close"
@@ -86,6 +97,10 @@ export default function EndScreen({
         >
           ✕
         </button>
+        <p className="dm-end-route-badge">
+          Itinéraire {state.routeIndex} / {state.routeCount}
+          {state.matchFinished ? "" : ` — score total : ${state.totalScore} pts`}
+        </p>
         <h2>{won ? "🎉 Destination trouvée !" : "😵 C'était…"}</h2>
         <p className="dm-end-dest">
           {state.destination ? state.destination.name : "?"}{" "}
@@ -141,8 +156,7 @@ export default function EndScreen({
             : "Tracé indicatif : infrastructure ferroviaire indisponible, lignes droites."}
         </p>
         <p className="dm-end-tip">
-          💡 Cliquez sur la carte pour masquer ce panneau et voir l&apos;itinéraire ;
-          le bouton « 🏁 Voir le résultat » en bas à droite le réaffiche.
+          💡 Cliquez sur la carte pour masquer ce panneau et voir l&apos;itinéraire.
         </p>
 
         <section className="dm-feedback" aria-label="Cet itinéraire est-il réaliste ?">
@@ -179,19 +193,14 @@ export default function EndScreen({
           )}
         </section>
 
-        <button className="dm-btn dm-share" type="button" onClick={copyShare}>
-          {copied ? "Copié ✔" : "Copier mon résultat"}
-        </button>
-        {process.env.NODE_ENV === "development" ? (
-          <button className="dm-btn" type="button" onClick={onReplay}>
-            Rejouer
+        <div className="dm-end-actions">
+          <button className="dm-btn dm-share" type="button" onClick={copyShare}>
+            {copied ? "Copié ✔" : "Copier mon résultat"}
           </button>
-        ) : null}
-        {onReroll ? (
-          <button className="dm-btn" type="button" onClick={onReroll}>
-            🎲 Nouvel itinéraire
+          <button className="dm-btn dm-btn-primary dm-next-route" type="button" onClick={onNext}>
+            {nextLabel}
           </button>
-        ) : null}
+        </div>
       </div>
     </div>
   );

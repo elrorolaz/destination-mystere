@@ -19,6 +19,7 @@
     "prepare:data": "tsx scripts/prepare-cities.ts && tsx scripts/prepare-airports.ts",
     "data:import": "tsx scripts/import-db.ts",
     "challenge:generate": "tsx scripts/generate-daily.ts",
+    "check:match": "tsx scripts/check-match.ts",
     "check:itinerary": "tsx scripts/check-itinerary.ts",
     "check:leg-geometry": "tsx scripts/check-leg-geometry.ts",
     "diagnose:zone": "tsx scripts/diagnose-zone.ts",

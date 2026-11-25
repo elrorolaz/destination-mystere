@@ -1,5 +1,5 @@
-// Génère le défi du jour (ou d'une date donnée) en ligne de commande —
-// même code que le cron /api/cron/generate-daily (M2, spécification §6).
+// Génère les TROIS itinéraires du jour (ou d'une date donnée) en ligne de
+// commande — même code que le cron /api/cron/generate-daily (M2+, §6).
 //
 //   npm run challenge:generate                          # aujourd'hui (Paris)
 //   npm run challenge:generate -- --date 2026-11-22     # une date précise
@@ -10,11 +10,13 @@
 
 import { challengeDateFromKey, parisDateKey } from "../src/lib/paris-date.ts";
 import { db } from "../src/lib/db.ts";
+import { ROUTE_COUNT } from "../src/lib/game-types.ts";
 import {
-  generateDailyChallenge,
-  upsertDailyChallenge,
-} from "../src/server/daily-challenge.ts";
-import { fallbackToFixtureChallenge } from "../src/server/challenge-store.ts";
+  excludedPairs,
+  generateRouteForSlot,
+  getRoute,
+} from "../src/server/challenge-store.ts";
+import { generateDailyChallenge, upsertDailyRoute } from "../src/server/daily-challenge.ts";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -26,42 +28,62 @@ async function main() {
   const force = args.includes("--force");
 
   const date = challengeDateFromKey(dateKey);
-  const existing = await db.dailyChallenge.findUnique({ where: { challengeDate: date } });
-  if (existing && !force) {
-    console.log(
-      "Défi " + dateKey + " déjà présent (origine=" +
-        (await db.city.findUnique({ where: { id: existing.originCityId } }))?.name +
-        "), rien à faire. --force pour regénérer.",
-    );
-    return;
-  }
+  await db.dailyChallenge.upsert({
+    where: { challengeDate: date },
+    create: { challengeDate: date },
+    update: {},
+  });
 
-  try {
-    const challenge = await generateDailyChallenge(dateKey);
-    await upsertDailyChallenge(challenge, date);
-    console.log(
-      "✅ Défi " + dateKey + " généré [" + challenge.source + ", zone " + challenge.zone + "] : " +
-        challenge.segments.length + " segments, " + challenge.totalDurationMin + " min.",
-    );
-    for (const s of challenge.segments) {
+  for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
+    const existing = await getRoute(date, slot);
+    if (existing && !force) {
       console.log(
-        "   " + s.index + ". " + s.kind + "  " + s.from + " → " + s.to +
-          (s.lineOrCarrier ? "  [" + s.lineOrCarrier + "]" : "") +
-          "  " + s.durationMin + " min",
+        "Itinéraire " + slot + " " + dateKey + " déjà présent (origine=" +
+          existing.originCity.name + "), rien à faire. --force pour regénérer.",
+      );
+      continue;
+    }
+    if (force && existing) {
+      await db.dailyRoute.delete({
+        where: { challengeDate_routeIndex: { challengeDate: date, routeIndex: slot } },
+      });
+    }
+
+    // Hors DEV_FIXTURE, on passe par le générateur déterministe seedé par
+    // slot (les 3 itinéraires du jour sont distincts : paires exclues).
+    const exclude = await excludedPairs(date);
+    try {
+      const challenge = await generateDailyChallenge(dateKey, { slot, exclude });
+      await upsertDailyRoute(challenge, date);
+      console.log(
+        "✅ Itinéraire " + slot + " " + dateKey + " généré [" + challenge.source + ", zone " +
+          challenge.zone + "] : " + challenge.segments.length + " segments, " +
+          challenge.totalDurationMin + " min.",
+      );
+      for (const s of challenge.segments) {
+        console.log(
+          "   " + s.index + ". " + s.kind + "  " + s.from + " → " + s.to +
+            (s.lineOrCarrier ? "  [" + s.lineOrCarrier + "]" : "") +
+            "  " + s.durationMin + " min",
+        );
+      }
+    } catch (err) {
+      console.error(
+        "⚠️  Génération de l'itinéraire " + slot + " impossible (" + (err as Error).message +
+          "), repli sur le fixture.",
+      );
+      const fallback = await generateRouteForSlot(date, dateKey, slot);
+      if (!fallback) {
+        console.error("Repli impossible : aucune ville du fixture en base ?");
+        process.exitCode = 1;
+        continue;
+      }
+      console.log(
+        "✅ Itinéraire " + slot + " " + dateKey + " en repli (fixture) : " +
+          fallback.originCity.name + " → " + fallback.destinationCity.name + ", " +
+          fallback.totalDurationMin + " min.",
       );
     }
-  } catch (err) {
-    console.error("⚠️  Génération impossible (" + (err as Error).message + "), repli sur le fixture.");
-    const fallback = await fallbackToFixtureChallenge(date);
-    if (!fallback) {
-      console.error("Repli impossible : aucune ville du fixture en base ?");
-      process.exitCode = 1;
-      return;
-    }
-    console.log(
-      "✅ Défi " + dateKey + " en repli (fixture) : " + fallback.originCity.name +
-        " → " + fallback.destinationCity.name + ", " + fallback.totalDurationMin + " min.",
-    );
   }
 }
 
