@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Jeu quotidien : deviner une destination européenne à partir d'un itinéraire en transports en commun.",
+  "description": "Itinaris — jeu quotidien : deviner une destination européenne à partir d'un itinéraire en transports en commun.",
   "engines": {
     "node": ">=20"
   },

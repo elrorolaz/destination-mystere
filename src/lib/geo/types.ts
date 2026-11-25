@@ -1,4 +1,4 @@
-// Types géographiques partagés — itinaris (M1)
+// Types géographiques partagés — Itinaris (M1)
 
 /** Point géographique WGS84. */
 export interface GeoPoint {

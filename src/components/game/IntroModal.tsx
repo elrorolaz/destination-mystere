@@ -32,7 +32,7 @@ export default function IntroModal({
       >
         <Image
           src="/logo.jpeg"
-          alt="Logo itinaris"
+          alt="Logo Itinaris"
           width={360}
           height={216}
           className="dm-intro-logo"

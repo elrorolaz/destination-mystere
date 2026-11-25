@@ -221,7 +221,9 @@ export default function GameScreen() {
             className="dm-logo-img"
             priority
           />
-          itin<span>aris</span>
+          <span className="dm-logo-text">
+            Itin<span>aris</span>
+          </span>
         </Link>
         <span>Défi du {state.date}</span>
       </header>

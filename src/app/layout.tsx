@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "itinaris",
-    template: "%s | itinaris",
+    default: "Itinaris",
+    template: "%s | Itinaris",
   },
   description:
     "Chaque jour, un itinéraire en transports en commun relie une ville française à une mystérieuse ville européenne. Saurez-vous la localiser en 6 essais ?",

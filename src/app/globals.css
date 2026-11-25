@@ -1,4 +1,4 @@
-/* itinaris — thème nuit (M3).
+/* Itinaris — thème nuit (M3).
    Palette de l'identité visuelle : nuit, encre, or, vert, brume, écume. */
 
 :root {
@@ -149,6 +149,11 @@ a {
   height: 24px;
   border-radius: 6px;
   object-fit: cover;
+}
+
+/* Le nom reste un seul bloc (pas d'espace parasite entre les lettres). */
+.dm-logo-text {
+  white-space: nowrap;
 }
 
 .dm-logo span {

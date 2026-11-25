@@ -41,7 +41,7 @@ export default function EndScreen({
     .join("");
   const followsTracks = traces.some((t) => t.followsTracks);
   const shareText =
-    "🧭 itinaris " +
+    "🧭 Itinaris " +
     state.date +
     " " +
     (squares || "—") +

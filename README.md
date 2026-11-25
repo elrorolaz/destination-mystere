@@ -1,4 +1,4 @@
-# 🚆 itinaris
+# 🚆 Itinaris
 
 Jeu quotidien multi-joueurs : chaque jour, un itinéraire en transports en commun (train, avion, transports publics — jamais de voiture) entre une ville française dotée d'une gare et une ville européenne. Le joueur ne voit que la **ville de départ** et la **durée totale du trajet** ; il localise la destination sur une carte en **6 essais maximum**, avec des indices progressifs :
 
@@ -85,7 +85,7 @@ Puis ouvrir **http://localhost:3000/jouer**. La carte s'ouvre à l'échelle de l
 
 ### 1. La maquette jouable (aucune installation)
 
-Une **démo interactive autonome** reproduit fidèlement l'écran de jeu : carte cliquable, snap vers la ville la plus proche, distance au but après chaque clic, 6 essais, indices A→B→C→D→E dans l'ordre, score standard et score de proximité, puis révélation complète (destination, tableau des segments, tracé du trajet). Elle est disponible dans le canvas « itinaris — démo jouable » de la conversation Vibe.
+Une **démo interactive autonome** reproduit fidèlement l'écran de jeu : carte cliquable, snap vers la ville la plus proche, distance au but après chaque clic, 6 essais, indices A→B→C→D→E dans l'ordre, score standard et score de proximité, puis révélation complète (destination, tableau des segments, tracé du trajet). Elle est disponible dans le canvas « Itinaris — démo jouable » de la conversation Vibe.
 
 > ⚠️ La maquette embarque un sous-ensemble de villes (≥ 25 000 hab.) et une carte dessinée en Canvas 2D pour rester autonome ; l'application réelle (M3) utilise MapLibre/OpenFreeMap et le seuil complet de 5 000 habitants.
 
