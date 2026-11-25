@@ -1,6 +1,6 @@
 // Vérification de bout en bout du match en 3 itinéraires (sans serveur HTTP) :
-// génération (route 1 + fond 2/3), état public, manches via submitGuess,
-// passage au suivant via nextRoute, anti-fuite des destinations, résultat final.
+// génération des 3 itinéraires à l'initialisation, état public, manches via
+// submitGuess, passage au suivant via nextRoute, anti-fuite, résultat final.
 //
 //   DEV_FIXTURE=true npx tsx scripts/check-match.ts
 //
@@ -8,7 +8,7 @@
 
 import { db } from "../src/lib/db.ts";
 import { challengeDateFromKey, parisDateKey } from "../src/lib/paris-date.ts";
-import { ensureTodayRoute1, getTodayRoutes } from "../src/server/challenge-store.ts";
+import { ensureTodayRoutes, getTodayRoutes } from "../src/server/challenge-store.ts";
 import { getPublicState, nextRoute, submitGuess } from "../src/server/game-service.ts";
 import { ROUTE_COUNT } from "../src/lib/game-types.ts";
 
@@ -19,22 +19,14 @@ async function main() {
   const dateKey = parisDateKey();
   const date = challengeDateFromKey(dateKey);
 
-  // 1) Itinéraire 1 servi tout de suite, 2 et 3 générés en fond.
-  const r1 = await ensureTodayRoute1();
-  if (!r1) throw new Error("aucun itinéraire 1 généré");
-  console.log("✅ itinéraire 1 :", r1.originCity.name, "→", r1.destinationCity.name);
-
-  // Attendre que le fond ait produit les 3 itinéraires (max 90 s).
-  let routes = await getTodayRoutes();
-  for (let i = 0; i < 90 && routes.length < ROUTE_COUNT; i++) {
-    await sleep(1000);
-    routes = await getTodayRoutes();
-  }
+  // 1) Les TROIS itinéraires sont calculés à l'initialisation.
+  const ensured = await ensureTodayRoutes();
+  if (ensured.length < ROUTE_COUNT) throw new Error("moins de 3 itinéraires générés");
+  const routes = await getTodayRoutes();
   console.log(
-    "✅ itinéraires du jour :",
+    "✅ itinéraires du jour (calculés à l'initialisation) :",
     routes.map((r) => `#${r.routeIndex} ${r.originCity.name}→${r.destinationCity.name}`).join("  |  "),
   );
-  if (routes.length < ROUTE_COUNT) throw new Error("génération en fond incomplète");
   const paires = new Set(routes.map((r) => r.originCityId + ">" + r.destCityId));
   console.log(paires.size === routes.length ? "✅ paires distinctes" : "⚠️ paires dupliquées (repli)");
 

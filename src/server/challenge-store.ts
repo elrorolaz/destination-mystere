@@ -1,10 +1,7 @@
 // Itinéraires du jour : lecture/écriture en base, génération par TROIS
-// (ROUTE_COUNT) avec une efficacité « premier proposé, suivants en fond » :
-//   - ensureTodayRoute1() garantit l'itinéraire 1 (le génère si besoin) et
-//     DÉCLENCHE la génération des itinéraires 2 et 3 en arrière-plan (verrou
-//     anti-doublon) pendant que le joueur fait sa première manche ;
-//   - waitForRoute(slot) attend la génération en cours puis lit la base
-//     (génère à la volée en dernier recours) quand le joueur passe au suivant.
+// (ROUTE_COUNT) **à l'initialisation** : ensureTodayRoutes() calcule les trois
+// itinéraires du jour (ceux qui manquent) et c'est tout — plus aucune
+// génération ensuite, jusqu'à relancer une partie (🎲 reroll en dev).
 //
 // Modes de développement (DEV_FIXTURE) :
 //   - DEV_FIXTURE=true   → itinéraire 1 = fixture figé data/fixtures/demo-journey.json,
@@ -53,60 +50,15 @@ export async function excludedPairs(date: Date): Promise<Set<string>> {
   return new Set(routes.map((r) => r.originCityId + ">" + r.destCityId));
 }
 
-/* ---------- Génération en fond (verrous anti-doublon) ---------- */
-
-const inflight = new Map<string, Promise<RouteWithCities | null>>();
-const bgKey = (dateKey: string, slot: number): string => dateKey + "#" + slot;
+/* ---------- Génération des trois itinéraires à l'initialisation ---------- */
 
 /**
- * Déclenche (sans attendre) la génération des itinéraires 2..ROUTE_COUNT
- * manquants pour la date — appelé dès que l'itinéraire 1 est servi, pour
- * qu'ils soient prêts quand le joueur passera à la manche suivante.
+ * Garantit les ROUTE_COUNT itinéraires du jour : ceux qui manquent sont
+ * calculés maintenant (await), dans l'ordre des slots. C'est le point
+ * d'entrée du chargement du jeu — ensuite, plus aucune génération jusqu'à
+ * relancer une partie (🎲 reroll en dev régénère les trois itinéraires).
  */
-export function kickBackgroundRoutes(date: Date, dateKey: string): void {
-  for (let slot = 2; slot <= ROUTE_COUNT; slot++) {
-    const k = bgKey(dateKey, slot);
-    if (inflight.has(k)) continue;
-    const p = (async (): Promise<RouteWithCities | null> => {
-      try {
-        if (!(await getRoute(date, slot))) {
-          await generateRouteForSlot(date, dateKey, slot);
-        }
-        return await getRoute(date, slot);
-      } catch (err) {
-        console.error("génération en fond " + dateKey + " itinéraire " + slot + " :", err);
-        return null;
-      } finally {
-        inflight.delete(k);
-      }
-    })();
-    inflight.set(k, p);
-  }
-}
-
-/**
- * Itinéraire `slot` garanti en base : attend une éventuelle génération en
- * fond, lit la base, et génère à la volée en dernier recours.
- */
-export async function waitForRoute(
-  date: Date,
-  dateKey: string,
-  slot: number,
-): Promise<RouteWithCities | null> {
-  if (slot >= 2) {
-    const p = inflight.get(bgKey(dateKey, slot));
-    if (p) await p.catch(() => undefined);
-  }
-  const existing = await getRoute(date, slot);
-  if (existing) return existing;
-  return generateRouteForSlot(date, dateKey, slot);
-}
-
-/**
- * Garantit l'itinéraire 1 du jour (généré si absent), déclenche le fond pour
- * les suivants, et le retourne. C'est le point d'entrée du chargement du jeu.
- */
-export async function ensureTodayRoute1(): Promise<RouteWithCities | null> {
+export async function ensureTodayRoutes(): Promise<RouteWithCities[]> {
   const dateKey = parisDateKey();
   const date = challengeDateFromKey(dateKey);
   await db.dailyChallenge.upsert({
@@ -114,11 +66,13 @@ export async function ensureTodayRoute1(): Promise<RouteWithCities | null> {
     create: { challengeDate: date },
     update: {},
   });
-  let route = await getRoute(date, 1);
-  if (!route) route = await generateRouteForSlot(date, dateKey, 1);
-  // Les itinéraires 2 et 3 sont générés EN FOND pendant la première manche.
-  kickBackgroundRoutes(date, dateKey);
-  return route;
+  const routes: RouteWithCities[] = [];
+  for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
+    let route = await getRoute(date, slot);
+    if (!route) route = await generateRouteForSlot(date, dateKey, slot);
+    if (route) routes.push(route);
+  }
+  return routes;
 }
 
 /* ---------- Génération d'un slot ---------- */

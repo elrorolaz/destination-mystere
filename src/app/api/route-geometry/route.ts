@@ -77,6 +77,11 @@ async function routerLegGeometry(
   return null;
 }
 
+/** Cache des tracés par itinéraire (date#route) : un itinéraire du jour ne
+ *  change pas — on ne recalcule jamais ses tracés (résultat final instantané). */
+const traceCache = new Map<string, { at: number; traces: SegmentTrace[] }>();
+const TRACE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
 /** Tracés d'un journey (boucle séquentielle volontaire : un Overpass à la fois). */
 async function tracesForJourney(journey: Journey, routeIndex?: number): Promise<SegmentTrace[]> {
   const traces: SegmentTrace[] = [];
@@ -167,14 +172,23 @@ export async function GET(req: NextRequest) {
         { status: 403 },
       );
     }
-    const traces: SegmentTrace[] = [];
-    for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
-      const route = await getRoute(date, slot);
-      if (!route) continue;
-      const journey = route.journey as unknown as Journey;
-      traces.push(...(await tracesForJourney(journey, slot)));
-    }
-    return NextResponse.json({ traces });
+    // Calcul des 3 itinéraires EN PARALLÈLE (cache par itinéraire : un second
+    // appel, ex. après recharge, est instantané).
+    const dateKey = parisDateKey();
+    const perRoute = await Promise.all(
+      [1, 2, 3].map(async (slot) => {
+        const cacheKey = dateKey + "#" + slot;
+        const hit = traceCache.get(cacheKey);
+        if (hit && Date.now() - hit.at < TRACE_CACHE_TTL_MS) return hit.traces;
+        const route = await getRoute(date, slot);
+        if (!route) return [] as SegmentTrace[];
+        const journey = route.journey as unknown as Journey;
+        const traces = await tracesForJourney(journey, slot);
+        traceCache.set(cacheKey, { at: Date.now(), traces });
+        return traces;
+      }),
+    );
+    return NextResponse.json({ traces: perRoute.flat() });
   }
 
   // Tracé d'une seule manche : autorisée seulement si elle est terminée.
@@ -185,11 +199,18 @@ export async function GET(req: NextRequest) {
       { status: 403 },
     );
   }
+  const dateKey = parisDateKey();
+  const cacheKey = dateKey + "#" + routeIndex;
+  const hit = traceCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < TRACE_CACHE_TTL_MS) {
+    return NextResponse.json({ traces: hit.traces });
+  }
   const route = await getRoute(date, routeIndex);
   if (!route) {
     return NextResponse.json({ error: "Aucun itinéraire pour ce numéro" }, { status: 503 });
   }
   const journey = route.journey as unknown as Journey;
   const traces = await tracesForJourney(journey, routeIndex);
+  traceCache.set(cacheKey, { at: Date.now(), traces });
   return NextResponse.json({ traces });
 }

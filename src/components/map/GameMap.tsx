@@ -451,11 +451,17 @@ export default function GameMap(props: GameMapProps) {
     );
   }, [props.guesses, loadTick]);
 
-  // Tracés de fin de partie : voies ferrées + arc aérien, puis cadrage.
-  // Les couleurs viennent de la palette du thème courant.
+  // Tracés de fin de manche / de match : voies ferrées + arc aérien, puis
+  // cadrage. Quand traces devient VIDE (passage à l'itinéraire suivant), on
+  // SUPPRIME explicitement les couches de tracé : l'itinéraire précédent ne
+  // doit jamais rester affiché sur la carte.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || loadTick === 0 || props.traces.length === 0) return;
+    if (!map || loadTick === 0) return;
+    if (props.traces.length === 0) {
+      removeRouteOverlay(map);
+      return;
+    }
     addRouteOverlay(map, props.traces, getThemeDef(themeRef.current).palette);
     fitBoundsToTraces(map, props.traces);
   }, [props.traces, loadTick, props.mapTheme]);

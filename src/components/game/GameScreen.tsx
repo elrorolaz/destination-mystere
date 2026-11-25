@@ -38,7 +38,11 @@ export default function GameScreen() {
   const [state, setState] = useState<PublicChallengeState | null>(null);
   const [traces, setTraces] = useState<SegmentTrace[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Requête en cours (proposition, passage à la manche suivante) : discret,
+  // AUCUN écran de chargement (la carte reste réactive, juste non cliquable).
   const [busy, setBusy] = useState(false);
+  // Génération de nouveaux itinéraires (🎲 reroll dev) : là seulement, overlay.
+  const [generating, setGenerating] = useState(false);
   // Panneau de résultat de la manche masqué (croix ✕ ou clic sur la carte)
   // pour voir l'itinéraire tracé.
   const [endHidden, setEndHidden] = useState(false);
@@ -224,8 +228,8 @@ export default function GameScreen() {
   // 🎲 Nouvel itinéraire de test (développement uniquement, DEV_FIXTURE=random) :
   // le serveur régénère les 3 itinéraires du jour, puis on recharge l'état public.
   const handleReroll = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
+    if (busy || generating) return;
+    setGenerating(true);
     try {
       const res = await fetch("/api/dev/reroll", { method: "POST" });
       if (!res.ok) {
@@ -253,9 +257,9 @@ export default function GameScreen() {
       setError("Connexion impossible.");
       setTimeout(() => setError(null), 2500);
     } finally {
-      setBusy(false);
+      setGenerating(false);
     }
-  }, [busy]);
+  }, [busy, generating]);
 
   /**
    * Clic sur la carte en fin de manche : masque le panneau de résultat pour
@@ -411,7 +415,7 @@ export default function GameScreen() {
             className="dm-btn dm-reroll"
             type="button"
             onClick={handleReroll}
-            disabled={busy}
+            disabled={busy || generating}
             title="Générer 3 nouveaux itinéraires de test (DEV_FIXTURE=random)"
           >
             🎲 Nouveaux itinéraires
@@ -501,11 +505,12 @@ export default function GameScreen() {
         <IntroModal state={state} onClose={closeIntro} />
       ) : null}
 
-      {/* Progression pendant la (re)génération des itinéraires (🎲 reroll). */}
-      {busy && state ? (
+      {/* Écran de chargement UNIQUEMENT pendant la génération de nouveaux
+          itinéraires (🎲 reroll) — jamais à chaque tentative de destination. */}
+      {generating ? (
         <LoadingOverlay
           title="🎲 Génération de nouveaux itinéraires…"
-          sub="Le serveur recalcule les trajets ; la partie reprendra ensuite."
+          sub="Le serveur calcule les 3 itinéraires du jour ; la partie reprendra ensuite."
         />
       ) : null}
     </div>

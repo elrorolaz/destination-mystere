@@ -3,16 +3,13 @@
 // Anti-triche §7 : la réponse ne contient jamais la destination ni le journey
 // d'une manche avant sa fin — voir buildPublicState (testé).
 //
-// Génération « par trois, efficace » : l'itinéraire 1 est servi tout de suite
-// (généré si besoin) et les itinéraires 2 et 3 sont générés EN FOND pendant
-// la première manche — via after() (s'exécute après la réponse, même sur
-// serverless) ; le verrou de challenge-store rend l'appel idempotent.
+// Les TROIS itinéraires du jour sont calculés ici à l'initialisation s'ils
+// manquent (ensureTodayRoutes, via getPublicState) — et c'est tout : plus
+// aucune génération ensuite, jusqu'à relancer une partie.
 
 import { cookies } from "next/headers";
-import { after, NextResponse } from "next/server";
-import { challengeDateFromKey, parisDateKey } from "../../../lib/paris-date.ts";
+import { NextResponse } from "next/server";
 import { GameError, getPublicState } from "../../../server/game-service.ts";
-import { kickBackgroundRoutes } from "../../../server/challenge-store.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +27,6 @@ export async function GET() {
         GUEST_COOKIE + "=" + guestKey + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + SIX_MONTHS_S;
     }
     const state = await getPublicState(guestKey);
-    // Itinéraires 2 et 3 générés en fond pendant la première manche.
-    const dateKey = parisDateKey();
-    after(() => {
-      kickBackgroundRoutes(challengeDateFromKey(dateKey), dateKey);
-    });
     const res = NextResponse.json(state);
     if (cookieHeader) {
       res.headers.append("Set-Cookie", cookieHeader);

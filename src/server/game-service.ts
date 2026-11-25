@@ -17,9 +17,8 @@ import type {
 } from "../lib/game-types.ts";
 import { ROUTE_COUNT } from "../lib/game-types.ts";
 import {
-  ensureTodayRoute1,
+  ensureTodayRoutes,
   getRoute,
-  waitForRoute,
   type RouteWithCities,
 } from "./challenge-store.ts";
 import { getSnapper } from "./cities.ts";
@@ -228,20 +227,13 @@ export function buildPublicState(
 }
 
 /** Charge les entrées des ROUTE_COUNT manches du match (données serveur). */
-async function matchRoutesFor(
-  guestKey: string,
-  sessionId: string,
-  currentRouteIndex: number,
-): Promise<MatchRouteInput[]> {
-  const dateKey = parisDateKey();
-  const date = challengeDateFromKey(dateKey);
+async function matchRoutesFor(sessionId: string): Promise<MatchRouteInput[]> {
+  const date = challengeDateFromKey(parisDateKey());
   const out: MatchRouteInput[] = [];
   for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
-    let route = await getRoute(date, slot);
-    // Seule la manche courante peut manquer encore d'itinéraire : on l'attend.
-    if (!route && slot === currentRouteIndex) {
-      route = await waitForRoute(date, dateKey, slot);
-    }
+    // Les 3 itinéraires du jour sont calculés à l'initialisation
+    // (ensureTodayRoutes) : ils sont toujours présents ici.
+    const route = await getRoute(date, slot);
     const rs = await db.routeSession.findUnique({
       where: { sessionId_routeIndex: { sessionId, routeIndex: slot } },
     });
@@ -274,17 +266,18 @@ async function matchRoutesFor(
 async function stateFor(guestKey: string): Promise<PublicChallengeState> {
   const session = await getOrCreateSession(guestKey);
   const currentRouteIndex = Math.min(Math.max(session.currentRouteIndex, 1), ROUTE_COUNT);
-  const routes = await matchRoutesFor(guestKey, session.id, currentRouteIndex);
+  const routes = await matchRoutesFor(session.id);
   return buildPublicState(parisDateKey(), routes, currentRouteIndex);
 }
 
 /**
- * État public du match du jour pour cet invité : garantit l'itinéraire 1
- * (et lance la génération en fond des suivants), puis projette l'état.
+ * État public du match du jour pour cet invité : calcule les TROIS itinéraires
+ * du jour à l'initialisation s'ils manquent (puis plus rien jusqu'à relancer
+ * une partie), puis projette l'état.
  */
 export async function getPublicState(guestKey: string): Promise<PublicChallengeState> {
-  const route1 = await ensureTodayRoute1();
-  if (!route1) throw new GameError("Aucun itinéraire pour aujourd'hui", 404);
+  const routes = await ensureTodayRoutes();
+  if (routes.length === 0) throw new GameError("Aucun itinéraire pour aujourd'hui", 404);
   return stateFor(guestKey);
 }
 
@@ -302,12 +295,11 @@ export async function submitGuess(
   clickLat: number,
   clickLng: number,
 ): Promise<PublicChallengeState> {
-  const dateKey = parisDateKey();
-  const date = challengeDateFromKey(dateKey);
+  const date = challengeDateFromKey(parisDateKey());
 
   const session = await getOrCreateSession(guestKey);
   const routeIndex = Math.min(Math.max(session.currentRouteIndex, 1), ROUTE_COUNT);
-  const route = await waitForRoute(date, dateKey, routeIndex);
+  const route = await getRoute(date, routeIndex);
   if (!route) throw new GameError("Aucun itinéraire pour aujourd'hui", 404);
 
   const routeSession = await getOrCreateRouteSession(session.id, routeIndex);
@@ -384,11 +376,10 @@ export async function submitGuess(
 /**
  * Passe à l'itinéraire suivant du match (bouton « Itinéraire suivant » de
  * l'écran de résultat d'une manche). La manche courante doit être terminée ;
- * l'itinéraire suivant est généré à la volée s'il ne l'est pas encore.
+ * l'itinéraire suivant existe déjà (les 3 ont été calculés à l'initialisation).
  */
 export async function nextRoute(guestKey: string): Promise<PublicChallengeState> {
-  const dateKey = parisDateKey();
-  const date = challengeDateFromKey(dateKey);
+  const date = challengeDateFromKey(parisDateKey());
   const session = await getOrCreateSession(guestKey);
   const routeIndex = Math.min(Math.max(session.currentRouteIndex, 1), ROUTE_COUNT);
 
@@ -403,7 +394,8 @@ export async function nextRoute(guestKey: string): Promise<PublicChallengeState>
   }
 
   const next = routeIndex + 1;
-  const route = await waitForRoute(date, dateKey, next); // génère en fond si besoin
+  // Les 3 itinéraires existent déjà (calculés à l'initialisation).
+  const route = await getRoute(date, next);
   if (!route) throw new GameError("Itinéraire suivant indisponible", 503);
   await db.gameSession.update({
     where: { id: session.id },

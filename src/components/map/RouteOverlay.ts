@@ -27,11 +27,11 @@ function toLine(geometry: Array<[number, number]>): LngLat[] {
   return out;
 }
 
-/** Couleur + glow de chaque itinéraire (1..3). */
+/** Couleur + glow de chaque itinéraire (1..3) : rouge, vert, bleu. */
 export const ROUTE_COLORS = [
-  { core: "#E8B44A", glow: "rgba(232, 180, 74, 0.55)" }, // itinéraire 1 — or
-  { core: "#4FC3F7", glow: "rgba(79, 195, 247, 0.55)" }, // itinéraire 2 — bleu
-  { core: "#F06292", glow: "rgba(240, 98, 146, 0.55)" }, // itinéraire 3 — rose
+  { core: "#FF3B30", glow: "rgba(255, 59, 48, 0.55)" }, // itinéraire 1 — rouge
+  { core: "#34C759", glow: "rgba(52, 199, 89, 0.55)" }, // itinéraire 2 — vert
+  { core: "#3E9BFF", glow: "rgba(62, 155, 255, 0.55)" }, // itinéraire 3 — bleu
 ] as const;
 
 /** Couleur d'un itinéraire (1-based ; défaut = itinéraire 1). */
