@@ -6,7 +6,7 @@
 
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json ./prisma ./
 RUN npm ci
 
 FROM node:22-alpine AS builder
@@ -27,15 +27,20 @@ RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # --chmod=644 : le logo public/ doit être lisible par l'user non-root « nextjs ».
-COPY --chmod=0644 --from=builder /app/public ./public
+COPY --chmod=0755 --from=builder /app/public ./public
 # Prisma : client généré + moteurs (non tracés par le standalone Next).
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Données lues au runtime (le reste de data/ est monté en volume, voir compose).
-COPY --chmod=0644 --from=builder /app/data/fixtures ./data/fixtures
-COPY --chmod=0644 --from=builder /app/data/airports ./data/airports
-RUN mkdir -p /app/data/logs && chown -R nextjs:nextjs /app
+COPY --chmod=0755 --from=builder /app/data/fixtures ./data/fixtures
+COPY --chmod=0755 --from=builder /app/data/airports ./data/airports
+COPY --chmod=0755 --from=builder /app/src ./src
+COPY --chmod=0755 --from=builder /app/scripts ./scripts
+RUN mkdir -p /app/data/logs
+RUN npm i
+RUN npm install -g tsx
+RUN chown -R nextjs:nextjs /app
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

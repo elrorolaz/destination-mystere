@@ -9,8 +9,13 @@
 # 03:00 UTC (05:00 heure de Paris en hiver, 06:00 en été), protégé par
 # CRON_SECRET — comme vercel.json sur Vercel.
 
+networks:
+  caddy:
+    external: true
+  itinaris:
+
 services:
-  db:
+  itinaris_db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -19,39 +24,44 @@ services:
       POSTGRES_DB: destination_mystere
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - itinaris
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d destination_mystere"]
       interval: 5s
       timeout: 3s
       retries: 30
 
-  app:
+  itinaris_app:
     build: .
     restart: unless-stopped
-    ports:
-      - "${PORT:-3000}:3000"
     env_file: .env
     environment:
       # Base : service « db » du compose (et non localhost).
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/destination_mystere?sslmode=disable
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-dev}@itinaris_db:5432/destination_mystere?sslmode=disable
       HOSTNAME: 0.0.0.0
       PORT: "3000"
       NODE_ENV: production
       # En prod : jamais de fixture de dev.
       DEV_FIXTURE: "false"
+    networks:
+      - caddy
+      - itinaris
     volumes:
       # data/ monté sur l'hôte : villes/aéroports générés par « init",
       # logs des signalements persistants (data/logs/unrealistic-itineraries.jsonl).
       - ./data:/app/data
     depends_on:
-      db:
+      itinaris_db:
         condition: service_healthy
 
-  cron:
+  itinaris_cron:
     image: alpine:3.20
     restart: unless-stopped
     depends_on:
-      - app
+      - itinaris_app
+    networks:
+      - itinaris
     environment:
       APP_URL: http://app:3000
       CRON_SECRET: ${CRON_SECRET:?CRON_SECRET est requis dans .env pour le service cron}
@@ -71,17 +81,19 @@ services:
 
   # One-shot (profil « init") : prépare les données, pousse le schéma Prisma,
   # importe les villes en base et génère le défi du jour + J+1.
-  init:
+  itinaris_init:
     profiles: ["init"]
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-dev}@db:5432/destination_mystere?sslmode=disable
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-dev}@itinaris_db:5432/destination_mystere?sslmode=disable
       DEV_FIXTURE: "false"
     volumes:
       - ./data:/app/data
+    networks:
+      - itinaris
     depends_on:
-      db:
+      itinaris_db:
         condition: service_healthy
     command:
       - sh
