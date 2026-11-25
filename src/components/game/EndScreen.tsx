@@ -41,7 +41,7 @@ export default function EndScreen({
     .join("");
   const followsTracks = traces.some((t) => t.followsTracks);
   const shareText =
-    "🧭 Destination Mystère " +
+    "🧭 itinaris " +
     state.date +
     " " +
     (squares || "—") +

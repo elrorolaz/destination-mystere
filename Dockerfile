@@ -26,14 +26,15 @@ ENV NODE_ENV=production \
 RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# --chmod=644 : le logo public/ doit être lisible par l'user non-root « nextjs ».
+COPY --chmod=0644 --from=builder /app/public ./public
 # Prisma : client généré + moteurs (non tracés par le standalone Next).
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Données lues au runtime (le reste de data/ est monté en volume, voir compose).
-COPY --from=builder /app/data/fixtures ./data/fixtures
-COPY --from=builder /app/data/airports ./data/airports
+COPY --chmod=0644 --from=builder /app/data/fixtures ./data/fixtures
+COPY --chmod=0644 --from=builder /app/data/airports ./data/airports
 RUN mkdir -p /app/data/logs && chown -R nextjs:nextjs /app
 USER nextjs
 EXPOSE 3000

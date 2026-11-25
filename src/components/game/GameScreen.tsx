@@ -212,7 +212,7 @@ export default function GameScreen() {
   return (
     <div className="dm-wrap">
       <header className="dm-topbar">
-        <Link className="dm-logo" href="/">
+        <Link className="dm-logo" href="/jouer">
           <Image
             src="/logo.jpeg"
             alt=""
@@ -221,7 +221,7 @@ export default function GameScreen() {
             className="dm-logo-img"
             priority
           />
-          Destination <span>Mystère</span>
+          itin<span>aris</span>
         </Link>
         <span>Défi du {state.date}</span>
       </header>
