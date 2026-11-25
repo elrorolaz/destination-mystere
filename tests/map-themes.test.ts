@@ -47,6 +47,11 @@ const STYLE_LAYERS = [
   { id: "label-md", type: "symbol", source: "dm-cities" },
   { id: "route-rail", type: "line", source: "route-rail-src" },
   { id: "route-rail-glow", type: "line", source: "route-rail-src" },
+  // --- tracés multi-itinéraires (rouge/vert/bleu) : idem, jamais touchés ---
+  { id: "dm-r1-rail", type: "line", source: "dm-r1-rail-src" },
+  { id: "dm-r1-rail-glow", type: "line", source: "dm-r1-rail-src" },
+  { id: "dm-r2-air", type: "line", source: "dm-r2-air-src" },
+  { id: "dm-r3-label", type: "symbol", source: "dm-r3-label-src" },
 ];
 
 describe("map-themes — le thème de fond ne touche jamais les couches du jeu", () => {
@@ -54,6 +59,11 @@ describe("map-themes — le thème de fond ne touche jamais les couches du jeu",
     expect(isGameSource("dm-cities")).toBe(true);
     expect(isGameSource("route-rail-src")).toBe(true);
     expect(isGameSource("route-air-mid-src")).toBe(true);
+    // tracés multi-itinéraires colorés (dm-r<N>-*) : reconnus comme source du
+    // jeu, sinon le thème de fond les repeint en beige/gris (bug constaté).
+    expect(isGameSource("dm-r1-rail-src")).toBe(true);
+    expect(isGameSource("dm-r2-air-glow")).toBe(true);
+    expect(isGameSource("dm-r3-label-src")).toBe(true);
     expect(isGameSource("osm")).toBe(false);
     expect(isGameSource(undefined)).toBe(false);
   });

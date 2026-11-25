@@ -145,10 +145,17 @@ interface StyleLayer {
   "source-layer"?: string;
 }
 
-/** Sources propres au jeu : jamais modifiées par le thème de fond. */
+/** Sources propres au jeu : jamais modifiées par le thème de fond.
+ *  « dm-cities » (constellation), « route-* » (ancien tracé), et surtout
+ *  « dm-r<N>-* » (tracés multi-itinéraires colorés rouge/vert/bleu) — sinon le
+ *  thème de fond repeindrait les tracés en beige/gris. */
 export function isGameSource(source: string | undefined): boolean {
   if (!source) return false;
-  return source === "dm-cities" || source.startsWith("route-");
+  return (
+    source === "dm-cities" ||
+    source.startsWith("route-") ||
+    source.startsWith("dm-r")
+  );
 }
 
 function layersOf(map: MLMap): StyleLayer[] {

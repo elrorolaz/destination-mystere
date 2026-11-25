@@ -53,13 +53,18 @@ interface RouteGroup {
   dash: number[] | null;
 }
 
-/** Groupes de tracé d'un itinéraire (par kind), colorés par la route. */
+/**
+ * Groupes de tracé d'un itinéraire (par kind), colorés par la route.
+ * Distinction demandée : trajet TERRESTRE (rail + urbain) en TRAIT PLEIN qui
+ * suit les vraies voies (Overpass/MOTIS), AVION en POINTILLÉS, et les
+ * correspondances à pied en petits pointillés gris-couleur.
+ */
 function groupsOf(): RouteGroup[] {
   return [
     { id: "conn", kinds: ["connection"], width: 2.2, dash: [0.4, 1.8] },
-    { id: "air", kinds: ["air"], width: 3.2, dash: [1.2, 2.2] },
-    { id: "urban", kinds: ["urban"], width: 4.2, dash: [2, 1.4] },
-    { id: "rail", kinds: ["rail"], width: 5.2, dash: null },
+    { id: "air", kinds: ["air"], width: 3.4, dash: [1.4, 2.4] }, // avion = pointillés
+    { id: "urban", kinds: ["urban"], width: 4.4, dash: null }, // terrestre = plein
+    { id: "rail", kinds: ["rail"], width: 5.4, dash: null }, // terrestre = plein
   ];
 }
 
