@@ -133,11 +133,22 @@ a {
 }
 
 .dm-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: var(--dm-foam);
   text-decoration: none;
   white-space: nowrap;
+}
+
+/* Petit logo dans la barre du haut de l'écran de jeu. */
+.dm-logo-img {
+  width: 40px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .dm-logo span {
@@ -972,6 +983,16 @@ a {
 
 /* --- Écran d'accueil du jeu (départ + durée + règles) --- */
 
+/* Grand logo sur le panneau de démarrage. */
+.dm-intro-logo {
+  display: block;
+  width: min(240px, 62%);
+  height: auto;
+  margin: 0 auto 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(232, 180, 74, 0.35);
+}
+
 .dm-intro-eyebrow {
   margin: 0 0 0.3rem;
   color: var(--dm-gold);
@@ -979,11 +1000,13 @@ a {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-align: center;
 }
 
 .dm-intro-title {
   margin: 0 0 0.7rem;
   font-size: 1.45rem;
+  text-align: center;
   color: var(--dm-foam);
 }
 

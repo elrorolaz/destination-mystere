@@ -5,6 +5,7 @@
 // règles. Un clic EN DEHORS de la fenêtre (sur le fond) accède directement à
 // l'écran de jeu.
 
+import Image from "next/image";
 import type { PublicChallengeState } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
 
@@ -29,6 +30,14 @@ export default function IntroModal({
         aria-label="Présentation du défi du jour"
         onClick={(e) => e.stopPropagation()}
       >
+        <Image
+          src="/logo.jpeg"
+          alt="Logo Destination Mystère"
+          width={360}
+          height={216}
+          className="dm-intro-logo"
+          priority
+        />
         <p className="dm-intro-eyebrow">🧭 Défi du {state.date}</p>
         <h2 className="dm-intro-title">Où mène cet itinéraire ?</h2>
         <p className="dm-intro-journey">
