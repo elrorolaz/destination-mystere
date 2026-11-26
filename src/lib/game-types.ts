@@ -30,7 +30,7 @@ export interface PublicGuess {
 }
 
 export interface PublicHint {
-  key: "A" | "B" | "C" | "D";
+  key: "A" | "B" | "C" | "D" | "E";
   title: string;
   body: string;
 }
@@ -63,6 +63,16 @@ export interface PublicRouteResult {
   destination: PublicCityInfo | null;
   /** Distance du dernier essai à la destination (manche terminée). */
   lastDistanceKm: number | null;
+  /**
+   * Historique des essais de la manche en carrés (🟥/🟩) — repris tel quel
+   * dans le texte de partage (aucun nom de ville : pas de spoiler).
+   */
+  squares: string;
+  /**
+   * Seuil de population de la destination de cette manche (niveau de
+   * difficulté : 50 000 / 20 000 / 0) — affiché tel quel ("villes ≥ …").
+   */
+  destMinPopulation: number;
 }
 
 export interface PublicChallengeState {
@@ -72,6 +82,18 @@ export interface PublicChallengeState {
   routeIndex: number;
   /** Nombre d'itinéraires du match (3). */
   routeCount: number;
+  /**
+   * Multiplicateur de score de la manche en cours (×1 / ×1,5 / ×2 selon
+   * l'itinéraire, dans l'ordre de difficulté croissante) : le score affiché
+   * est déjà multiplié côté serveur.
+   */
+  routeMultiplier: number;
+  /**
+   * Seuil de population de la DESTINATION de la manche en cours (niveau de
+   * difficulté : 50 000 / 20 000 / 0) : seules les villes ≥ ce seuil sont
+   * affichées et cliquables sur la carte pendant la manche.
+   */
+  destMinPopulation: number;
   /** Vrai quand les 3 manches sont terminées → écran de résultat final. */
   matchFinished: boolean;
   /** Somme des scores des manches terminées. */

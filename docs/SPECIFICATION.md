@@ -22,12 +22,13 @@
 | **Ouverture** | Ville de départ + **durée totale du trajet** (portes-à-portes) |
 | **Essai 1** | Clic sur la carte → rattaché à la **ville > 5 000 habitants la plus proche** |
 | **Après chaque clic** | La ville devinée est épinglée sur la carte avec sa **distance à la destination secrète** (« à X km du but ») |
-| **Après l'échec 1** | **Indice A** : la liste ordonnée des **modes de transport**, ramenés aux seules catégories **transports urbains / avion / train** (ex. « Transports urbains → Avion → Transports urbains »), **sans les durées** |
+| **Après l'échec 1** | **Indice A** : la liste ordonnée des **modes de transport**, ramenés aux seules catégories **transports urbains / avion / train** (ex. « Transports urbains → Avion → Transports urbains »), **sans les durées**. Un **RER compte comme transport urbain** (« Transports urbains », jamais « Train ») ; chaque **TER compte comme train** |
 | **Après l'échec 2** | **Indice B** : les **modes de l'indice A et les durées des segments ensemble** (ex. « Transports urbains — 36 min → Avion — 107 min → Transports urbains — 31 min ») |
 | **Après l'échec 3** | **Indice C** : le **nom des lignes / compagnies** (ex. « TER Grand Est, TGV inOui, Air France, Métro ligne 14 ») |
-| **Après l'échec 4** | **Indice E** : une **destination intermédiaire** du trajet — jamais la destination, ni l'avant-dernier arrêt |
-| **Essai 5 & 6** | Derniers essais : victoire à 250 pts, sinon **score de proximité** (§1.3) |
-| **Après l'échec 6** | Révélation de la destination + score de proximité selon la distance du dernier clic |
+| **Après l'échec 4** | **Indice D** : un **point de correspondance** du trajet — jamais la destination, ni l'avant-dernier arrêt |
+| **Après l'échec 5** | **Indice E** : le **pays de la destination secrète** — il ne reste alors plus qu'**un seul essai** (le 6ᵉ ; le total de 6 essais est inchangé) |
+| **Essai 6** | Dernier essai : victoire à 250 pts, sinon **score de proximité** (§1.3) |
+| **Après l'échec 6** | Révélation de la destination + score de proximité sur la **dernière** réponse (d < 300 km) |
 
 - **Maximum : 6 essais.** Une proposition est juste si la ville rattachée au clic est la ville de destination.
 - Après chaque clic, afficher la ville devinée sur la carte (épingle) **et la distance à vol d'oiseau entre la ville devinée et la destination secrète** (« à X km du but »), pour que le joueur puisse s'orienter.
@@ -42,8 +43,11 @@
 | 4ᵉ | 550 |
 | 5ᵉ | 400 |
 | 6ᵉ | 250 |
-| Échec (6ᵉ clic raté) | **Score de proximité** : arrondi de 250 × (1 − d/200) où d = distance entre la ville du dernier clic et la destination ; **0 si d > 200 km** |
+| Échec (6ᵉ clic raté) | **Score de proximité dégressif** : la **dernière** réponse rapporte arrondi de 250 × (1 − d/300) où d = sa distance à la destination — multiplicateur (1 − d/300) inversement proportionnel à la distance, donc toujours ≤ 250 (victoire au 6ᵉ essai : être proche ne rapporte jamais plus que trouver) ; **0 si d dépasse 300 km** |
 
+- **Multiplicateur par itinéraire** (match en 3 itinéraires, difficulté échelonnée) : le score de la manche est multiplié par **×1 pour le 1ᵉʳ itinéraire, ×1,5 pour le 2ᵉ, ×2 pour le 3ᵉ** (le plus difficile rapporte le plus) ; le score final est le total des trois manches multipliées.
+- **Difficulté échelonnée** : la **destination** du 1ᵉʳ itinéraire est tirée parmi les **villes majeures (≥ 50 000 hab.)**, celle du 2ᵉ parmi les villes **≥ 20 000 hab.**, celle du 3ᵉ parmi **toutes les villes du corpus** (seuil `minPopulationForSlot`, appliqué à la destination uniquement — le départ peut être n'importe quelle ville du corpus à chaque itinéraire). Le niveau est affiché sur chaque itinéraire et **seules les villes possibles (≥ seuil) sont affichées et cliquables** pendant la manche : filtre serveur dans `/api/cities` (constellation) et dans le snap de `/api/guess` et `/api/snap` (`getSnapperForFloor`, seuil lu depuis la session).
+- **Une seule partie par jour en production** : pas de « rejouer » à l'écran final (`DELETE /api/session` refusé hors développement) ; l'écran final propose un **partage du résultat** (WhatsApp, X, feuille de partage système) dont le texte ne contient **jamais les itinéraires** (date + carrés 🟥/🟩 + points uniquement, anti-spoiler).
 - Classement du jour trié par **score décroissant**, puis par **temps de résolution** (horodatage serveur) croissant pour départager les égalités.
 - Statistiques joueur : série de jours consécutifs joués (*streak*), moyenne de score, taux de réussite.
 
@@ -255,7 +259,9 @@ erDiagram
 }
 ```
 
-Chaque indice est une **projection** de cette structure : A = `modeDetail` de chaque segment, ramené aux catégories **transports urbains / avion / train** ; B = modes de A + `durationMin` ; C = + `lineOrCarrier` ; D = **nom des compagnies empruntées** (affinement de `lineOrCarrier`) ; E = une **destination intermédiaire** du trajet, jamais la dernière ni l'avant-dernière étape. Un seul champ, `journey`, alimente toute la mécanique — simple à maintenir et à tester.
+Chaque indice est une **projection** de cette structure : A = `modeDetail` de chaque segment, ramené aux catégories **transports urbains / avion / train** (RER = transports urbains, TER = train) ; B = modes de A + `durationMin` ; C = + `lineOrCarrier` ; D = **nom des compagnies empruntées** (affinement de `lineOrCarrier`) ; E = une **destination intermédiaire** du trajet, jamais la dernière ni l'avant-dernière étape. Un seul champ, `journey`, alimente toute la mécanique — simple à maintenir et à tester.
+
+**Normalisation des noms de lignes** (à la source, MOTIS/Navitia — `routing/line-names.ts`) : « EST 9050 » → **Eurostar**, « IC 12 » → **Intercités**, métro « 14 »/« M14 » → **« métro 14 »**.
 
 ---
 
@@ -308,7 +314,7 @@ NEXT_PUBLIC_MAP_TILES_URL=https://tiles.openfreemap.org/styles/liberty
 ## 6. Génération quotidienne de l'itinéraire
 
 1. **Cron à 05:00 (Europe/Paris)** : `POST /api/cron/generate-daily` (protégé par `CRON_SECRET`).
-2. **Sélection déterministe** : PRNG avec **la date comme graine** → le même duo de villes pour tous, reproductible en cas de régénération. Contraintes de sélection : distance min/max, ville de départ avec `hasTrainStation = true`, destination dans un pays desservi.
+2. **Sélection déterministe** : PRNG avec **la date comme graine** (`date`, `date#r2`, `date#r3` pour les 3 itinéraires) → le même duo de villes pour tous, reproductible en cas de régénération. Contraintes de sélection : distance min/max, ville de départ avec `hasTrainStation = true` (n'importe quelle ville du corpus), destination dans un pays desservi. **Difficulté échelonnée par slot, sur la destination uniquement** : seuil de population de la destination = ≥ 50 000 hab. (itinéraire 1), ≥ 20 000 hab. (itinéraire 2), toutes les villes du corpus (itinéraire 3).
 3. **Calcul** : `planner.ts` interroge l'API SNCF (rail) + le module vols (estimation), assemble 2 à 3 itinéraires candidats, retient le plus rapide, le normalise en `journey` (§4).
 4. **Stockage** dans `DailyChallenge` (une ligne par date, upsert).
 5. **Repli (fallback)** : si les APIs échouent, réutiliser un itinéraire de la réserve (`data/` ou table `FallbackRoute`) plutôt que de laisser le jour sans défi. Générer systématiquement le défi de **J+1** en avance.
@@ -370,10 +376,11 @@ Le joueur voit la ville de départ et la durée totale, puis clique sur une cart
 devine la destination ; son clic est rattaché à la ville de plus de 5 000 habitants la
 plus proche. La distance à la destination s'affiche après chaque clic. Après chaque
 erreur, un indice se débloque : (A) modes de transport (transports urbains / avion /
-train), (B) modes et durées des segments ensemble, (C) lignes/compagnies, (D) compagnies
-empruntées, (E) une destination intermédiaire (jamais la dernière ni l'avant-dernière
-étape). 6 essais maximum ; score de 1000 (1er essai) à 250 (6e) ; en cas d'échec au 6e,
-score de proximité selon la distance du dernier clic (0 au-delà de 200 km).
+train), (B) modes et durées des segments ensemble, (C) lignes/compagnies, (D) point de
+correspondance intermédiaire, (E) pays de la destination (après le 5e échec : il ne
+reste alors qu'un seul essai). 6 essais maximum ; score de 1000 (1er essai) à 250 (6e),
+multiplié par itinéraire (×1 / ×1,5 / ×2) ; en cas d'échec au 6e, score de proximité
+dégressif sur la dernière réponse : 250 × (1 − d/300), 0 si d dépasse 300 km.
 
 RÈGLES NON NÉGOCIABLES
 1. Logique 100 % côté serveur : la destination et l'itinéraire complet ne sont JAMAIS

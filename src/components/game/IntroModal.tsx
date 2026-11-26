@@ -8,6 +8,7 @@
 import Image from "next/image";
 import type { PublicChallengeState } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
+import { formatDestTier } from "@/lib/format/difficulty";
 
 export default function IntroModal({
   state,
@@ -46,6 +47,9 @@ export default function IntroModal({
           <br />
           Durée du trajet :{" "}
           <strong>{formatDuration(state.totalDurationMin)}</strong> portes-à-portes
+          <br />
+          Niveau : destinations possibles parmi les <strong>{formatDestTier(state.destMinPopulation)}</strong>
+          {" "}(score ×{state.routeMultiplier})
         </p>
         <ul className="dm-intro-rules">
           <li>
@@ -57,12 +61,14 @@ export default function IntroModal({
             <strong>distance au but</strong> (« à X km »).
           </li>
           <li>
-            🔓 Chaque essai manqué débloque un <strong>indice</strong> (A → D :
-            modes, durées, lignes, étape intermédiaire).
+            🔓 Chaque essai manqué débloque un <strong>indice</strong> (A → E :
+            modes, durées, lignes, étape intermédiaire, pays de la destination
+            après le 5ᵉ essai — il ne reste alors qu&apos;un seul essai).
           </li>
           <li>
-            🏆 Jusqu&apos;à <strong>1000 points</strong> au 1ᵉʳ essai, puis score de
-            proximité si les 6 essais sont épuisés.
+            🏆 Jusqu&apos;à <strong>1000 points</strong> au 1ᵉʳ essai (score ×1,5 sur le
+            2ᵉ itinéraire, ×2 sur le 3ᵉ), puis score de proximité si les 6
+            essais sont épuisés.
           </li>
           <li>
             🧭 La journée se joue en <strong>{state.routeCount} itinéraires</strong> :

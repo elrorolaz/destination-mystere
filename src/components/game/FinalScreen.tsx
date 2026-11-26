@@ -4,12 +4,20 @@
 // quand le joueur sort du panneau de résultat classique de la dernière manche.
 // Donne, pour chacun des 3 itinéraires : le score obtenu, la distance à la
 // destination secrète (dernier essai), l'itinéraire (départ → arrivée) ;
-// puis le SCORE FINAL (total des 3 manches). Un bouton relance une nouvelle
-// partie (3 nouveaux itinéraires à jouer). Clic en-dehors / croix ✕ : masque
-// le panneau pour voir les 3 itinéraires tracés sur la carte (couleurs et
-// numéros distincts).
+// puis le SCORE FINAL (total des 3 manches, multiplicateurs ×1 / ×1,5 / ×2
+// appliqués).
+//
+// Une seule partie par jour en production : PAS de bouton « rejouer » ici
+// (uniquement en développement, quand onRestart est fourni). À la place, des
+// boutons de PARTAGE du résultat sur les réseaux sociaux (WhatsApp, X, feuille
+// de partage système qui inclut Instagram…) + copie dans le presse-papier.
+// Le texte partagé ne contient JAMAIS les itinéraires (anti-spoiler) :
+// uniquement date, carrés 🟥/🟩, points et total — voir buildShareText.
 
+import { useState } from "react";
 import type { PublicChallengeState } from "@/lib/game-types";
+import { buildShareText } from "@/lib/format/share";
+import { formatDestTierShort } from "@/lib/format/difficulty";
 import { routeColor } from "@/components/map/RouteOverlay";
 
 export default function FinalScreen({
@@ -20,9 +28,45 @@ export default function FinalScreen({
   state: PublicChallengeState;
   /** Croix ✕ : masque le panneau pour voir les 3 itinéraires sur la carte. */
   onClose: () => void;
-  /** « 🔄 Nouvelle partie » : relance 3 itinéraires. */
-  onRestart: () => void;
+  /**
+   * « 🔄 Rejouer » — fourni UNIQUEMENT en mode développement (NODE_ENV ===
+   * "development") : en production, une seule partie par jour, aucun rejouer.
+   */
+  onRestart?: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  // Texte partagé : JAMAIS de nom de ville ni de détail d'itinéraire.
+  const shareText = buildShareText(state);
+  const shareUrl = typeof window === "undefined" ? "" : window.location.origin;
+
+  const copyShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // presse-papier indisponible : rien de bloquant
+    }
+  };
+
+  /** Feuille de partage du système (Instagram, WhatsApp, Messenger… sur mobile). */
+  const systemShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Itinaris — " + state.date, text: shareText, url: shareUrl });
+        return;
+      } catch {
+        return; // annulé par l'utilisateur : on retombe sur la copie
+      }
+    }
+    await copyShare();
+  };
+
+  const openNetwork = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+  const enc = encodeURIComponent(shareText + "\n" + shareUrl);
+
   return (
     <div className="dm-end-panel" role="dialog" aria-label="Résultat final de la partie">
       <div className="dm-end-card dm-final-card">
@@ -43,6 +87,7 @@ export default function FinalScreen({
             <tr>
               <th>#</th>
               <th>Itinéraire</th>
+              <th>Niveau</th>
               <th>Distance au but</th>
               <th>Score</th>
             </tr>
@@ -72,6 +117,9 @@ export default function FinalScreen({
                     "—"
                   )}
                 </td>
+                <td className="dm-final-tier" title={formatDestTierShort(r.destMinPopulation)}>
+                  🎯 {formatDestTierShort(r.destMinPopulation)}
+                </td>
                 <td>
                   {r.lastDistanceKm === null
                     ? "—"
@@ -96,10 +144,53 @@ export default function FinalScreen({
           chacun a sa couleur et son numéro (1, 2, 3).
         </p>
 
+        {/* Partage du résultat — le texte partagé ne révèle aucun itinéraire
+            (pas de nom de ville), pour ne pas spoiler les autres joueurs. */}
+        <section className="dm-share-section" aria-label="Partager mon résultat">
+          <p className="dm-share-title">📣 Partager mon résultat</p>
+          <div className="dm-share-networks">
+            <button
+              className="dm-btn dm-share-net"
+              type="button"
+              onClick={() => openNetwork("https://wa.me/?text=" + enc)}
+              title="Partager sur WhatsApp"
+            >
+              WhatsApp
+            </button>
+            <button
+              className="dm-btn dm-share-net"
+              type="button"
+              onClick={() =>
+                openNetwork("https://twitter.com/intent/tweet?text=" + enc)
+              }
+              title="Partager sur X"
+            >
+              X
+            </button>
+            <button
+              className="dm-btn dm-share-net"
+              type="button"
+              onClick={() => void systemShare()}
+              title="Ouvrir la feuille de partage (Instagram, Messenger, SMS…) — sinon copie dans le presse-papier"
+            >
+              📲 Partager…
+            </button>
+            <button className="dm-btn dm-share-net" type="button" onClick={() => void copyShare()}>
+              {copied ? "Copié ✔" : "📋 Copier"}
+            </button>
+          </div>
+          <p className="dm-share-note">
+            Le texte partagé ne contient que vos carrés et vos points — jamais
+            les itinéraires du jour.
+          </p>
+        </section>
+
         <div className="dm-end-actions">
-          <button className="dm-btn dm-btn-primary" type="button" onClick={onRestart}>
-            🔄 Nouvelle partie (3 itinéraires)
-          </button>
+          {onRestart ? (
+            <button className="dm-btn dm-btn-primary" type="button" onClick={onRestart}>
+              🔄 Rejouer (dev)
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

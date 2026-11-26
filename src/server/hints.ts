@@ -1,14 +1,15 @@
-// Projection des indices A → D à partir du journey (spécification §1.2
+// Projection des indices A → E à partir du journey (spécification §1.2
 // et §4, version maquette v5). « Ne pas générer les indices à la main » (§10) :
 // tout découle de cette projection, un seul endroit à maintenir.
 //
 // Ordre de déblocage : A après le 1er essai manqué, B après le 2e, C après
-// le 3e, D après le 4e — puis les deux derniers essais (5e et 6e) se jouent
-// sans nouvel indice.
+// le 3e, D après le 4e, E (pays de la destination) après le 5e — il ne reste
+// alors plus qu'un seul essai (le 6e).
 
+import { countryName } from "../lib/countries.ts";
 import type { Journey, JourneySegment, TransportMode } from "./routing/types.ts";
 
-export type HintKey = "A" | "B" | "C" | "D";
+export type HintKey = "A" | "B" | "C" | "D" | "E";
 
 export interface Hint {
   key: HintKey;
@@ -23,6 +24,18 @@ const CATEGORY: Record<TransportMode, string> = {
   urban: "Transports urbains",
   intercity_bus: "Bus interurbain",
 };
+
+/**
+ * Catégorie de l'indice A pour un segment de transport : le RER (et assimilés
+ * : DLR, Overground…) compte comme TRANSPORT EN COMMUN (« Transports urbains »),
+ * jamais comme « Train » ; chaque TER, TGV, Intercités… reste un « Train ».
+ */
+function categoryOf(s: JourneySegment): string {
+  if (s.kind === "rail" && /^(RER|DLR|Overground|Elizabeth line)/i.test(s.modeDetail)) {
+    return CATEGORY.urban;
+  }
+  return CATEGORY[s.kind as TransportMode] ?? "Train";
+}
 
 /** Segments de transport : les correspondances ne comptent pas (§4). */
 export function transportSegments(journey: Journey): JourneySegment[] {
@@ -55,12 +68,16 @@ function correspondencePoint(journey: Journey): string | null {
   return unique[Math.floor(unique.length / 2)] ?? null;
 }
 
-/** Les quatre indices, dans l'ordre de déblocage. */
-export function buildHints(journey: Journey): Hint[] {
+/**
+ * Les cinq indices, dans l'ordre de déblocage. L'indice E (pays de la
+ * destination) ne découle pas du journey : il vient du pays de la ville
+ * destination (`destCountry`, code ISO) — fourni par l'appelant.
+ */
+export function buildHints(journey: Journey, destCountry?: string): Hint[] {
   const segments = transportSegments(journey);
-  const categories = segments.map((s) => CATEGORY[s.kind as TransportMode]);
+  const categories = segments.map((s) => categoryOf(s));
   const withDurations = segments.map(
-    (s) => CATEGORY[s.kind as TransportMode] + " · " + s.durationMin + " min",
+    (s) => categoryOf(s) + " · " + s.durationMin + " min",
   );
   const hub = correspondencePoint(journey);
   return [
@@ -79,14 +96,26 @@ export function buildHints(journey: Journey): Hint[] {
           ? "Aucun point de correspondance intermédiaire sur ce trajet"
           : "Le trajet passe par " + hub,
     },
+    {
+      key: "E",
+      title: "Pays de la destination",
+      body:
+        destCountry === undefined || destCountry === ""
+          ? "Pays de la destination non disponible"
+          : "La destination se trouve en " + countryName(destCountry) + " (" + destCountry + ")",
+    },
   ];
 }
 
 /**
- * Indices débloqués après « failedAttempts » essais manqués :
- * 1 échec → A, …, 4 échecs → D. Les essais 5 et 6 ne débloquent rien
- * (plafond à 4 indices, deux derniers essais « nus »).
+ * Indices débloqués après « failedAttempts » essais manqués (6 essais au
+ * total, inchangé) : 1 échec → A, …, 4 échecs → D, 5 échecs → E (pays de la
+ * destination) — il ne reste alors plus qu'un seul essai (le 6e).
  */
-export function unlockedHints(journey: Journey, failedAttempts: number): Hint[] {
-  return buildHints(journey).slice(0, Math.max(0, Math.min(4, failedAttempts)));
+export function unlockedHints(
+  journey: Journey,
+  failedAttempts: number,
+  destCountry?: string,
+): Hint[] {
+  return buildHints(journey, destCountry).slice(0, Math.max(0, Math.min(5, failedAttempts)));
 }

@@ -145,8 +145,19 @@ describe("buildHints (fixture Reims → Vienne)", () => {
     expect(buildHints(small)[3]!.body).toBe("Le trajet passe par B");
   });
 
-  it("quatre indices au total : A, B, C, D (plus d'ancien indice « compagnies » ni « E »", () => {
-    expect(buildHints(journey).map((h) => h.key)).toEqual(["A", "B", "C", "D"]);
+  it("cinq indices au total : A, B, C, D, E (pays de la destination)", () => {
+    expect(buildHints(journey, "AT").map((h) => h.key)).toEqual(["A", "B", "C", "D", "E"]);
+  });
+
+  it("indice E : le pays de la destination, en toutes lettres + code ISO", () => {
+    const e = buildHints(journey, "AT")[4]!;
+    expect(e.key).toBe("E");
+    expect(e.title).toBe("Pays de la destination");
+    expect(e.body).toBe("La destination se trouve en Autriche (AT)");
+    // Sans pays fourni : message neutre (ne fuite rien).
+    expect(buildHints(journey)[4]!.body).toBe("Pays de la destination non disponible");
+    // Code inconnu : le code est renvoyé tel quel.
+    expect(buildHints(journey, "ZZ")[4]!.body).toContain("ZZ");
   });
 
   it("indice D dégradé : message neutre sans arrêts intermédiaires", () => {
@@ -169,31 +180,49 @@ describe("buildHints (fixture Reims → Vienne)", () => {
     );
   });
 
+  it("indice A : RER = « Transports urbains » (jamais « Train »), TER = « Train »", () => {
+    const mixed: Journey = {
+      totalDurationMin: 100,
+      segments: [
+        { index: 1, kind: "rail", modeDetail: "TER", lineOrCarrier: "TER", durationMin: 40, from: "A", to: "B" },
+        { index: 2, kind: "connection", modeDetail: "Correspondance", lineOrCarrier: "", durationMin: 5, from: "B", to: "B" },
+        // RER en kind "rail" (défensif) : doit compter comme transport en commun.
+        { index: 3, kind: "rail", modeDetail: "RER", lineOrCarrier: "RER B", durationMin: 30, from: "B", to: "C" },
+        { index: 4, kind: "urban", modeDetail: "Métro", lineOrCarrier: "métro 14", durationMin: 10, from: "C", to: "D" },
+        { index: 5, kind: "rail", modeDetail: "TGV", lineOrCarrier: "Eurostar", durationMin: 15, from: "D", to: "E" },
+      ],
+    };
+    // TER et TGV (Eurostar) = « Train » ; RER et métro = « Transports urbains ».
+    expect(buildHints(mixed, "FR")[0]!.body).toBe(
+      "Train  →  Transports urbains  →  Transports urbains  →  Train",
+    );
+  });
+
   it("unlockedHints : rien sans échec, A dès le premier échec", () => {
     expect(unlockedHints(journey, 0)).toHaveLength(0);
     const one = unlockedHints(journey, 1);
     expect(one.map((h) => h.key)).toEqual(["A"]);
   });
 
-  it("unlockedHints : plafonne à D — les essais 5 et 6 ne débloquent rien de plus", () => {
-    expect(unlockedHints(journey, 3).map((h) => h.key)).toEqual(["A", "B", "C"]);
-    expect(unlockedHints(journey, 4).map((h) => h.key)).toEqual([
+  it("unlockedHints : E après le 5ᵉ essai manqué — il ne reste alors qu'un seul essai", () => {
+    expect(unlockedHints(journey, 3, "AT").map((h) => h.key)).toEqual(["A", "B", "C"]);
+    expect(unlockedHints(journey, 4, "AT").map((h) => h.key)).toEqual([
       "A",
       "B",
       "C",
       "D",
     ]);
-    expect(unlockedHints(journey, 5).map((h) => h.key)).toEqual([
+    // 5 échecs → E débloqué (pays) ; le 6e essai est le dernier, seul.
+    const five = unlockedHints(journey, 5, "AT");
+    expect(five.map((h) => h.key)).toEqual(["A", "B", "C", "D", "E"]);
+    expect(five[4]!.body).toContain("Autriche");
+    // Plafond à 5 indices : le 6ᵉ essai n'en ajoute pas.
+    expect(unlockedHints(journey, 6, "AT").map((h) => h.key)).toEqual([
       "A",
       "B",
       "C",
       "D",
-    ]);
-    expect(unlockedHints(journey, 6).map((h) => h.key)).toEqual([
-      "A",
-      "B",
-      "C",
-      "D",
+      "E",
     ]);
   });
 });

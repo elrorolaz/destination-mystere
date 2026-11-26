@@ -14,6 +14,7 @@
 // TGV + Transilien N (1 correspondance) l'emporte sur métro + ligne J (2).
 
 import { haversineKm } from "../../lib/geo/haversine.ts";
+import { normalizeLineLabel } from "./line-names.ts";
 import { decodePolyline } from "./polyline.ts";
 import type { JourneySegment } from "./types.ts";
 
@@ -152,6 +153,17 @@ export function kindOfMotisMode(mode: string | undefined): LegKind {
   return "urban"; // SUBWAY, TRAM, BUS, FERRY
 }
 
+/**
+ * Kind du leg connaissant son modeDetail : un RER (REGIONAL_RAIL en ligne
+ * A–E) est un TRANSPORT EN COMMUN (urbain), pas un « train » — l'indice A le
+ * compte dans « Transports urbains ». Un TER reste un train (rail).
+ */
+export function kindOfMotisLeg(mode: string | undefined, modeDetail: string): LegKind {
+  const kind = kindOfMotisMode(mode);
+  if (kind === "rail" && /^RER/i.test(modeDetail)) return "urban";
+  return kind;
+}
+
 /** Lettres de lignes RER (les Transilien utilisent H, J, L, N, P, R, U…). */
 const RER_LETTERS = new Set(["A", "B", "C", "D", "E"]);
 
@@ -179,11 +191,20 @@ export function modeDetailOf(mode: string | undefined, agency: string, shortName
   return m || "Transport";
 }
 
-/** « TGV INOUI 8604 » → « TGV INOUI » ; « N » + Transilien → « Transilien N » ; « B » → « RER B ». */
-export function lineOf(leg: MotisLeg, kind: LegKind = kindOfMotisMode(leg.mode)): string {
+/**
+ * « TGV INOUI 8604 » → « TGV INOUI » ; « N » + Transilien → « Transilien N » ;
+ * « B » → « RER B » ; « EST 9050 » → « Eurostar » ; « IC 12 » → « Intercités » ;
+ * métro « 14 » → « métro 14 » (via normalizeLineLabel).
+ */
+export function lineOf(
+  leg: MotisLeg,
+  kind: LegKind = kindOfMotisMode(leg.mode),
+  modeDetail?: string,
+): string {
   const short = (leg.routeShortName ?? "").replace(/\s+\d+$/, "").trim();
   const long = (leg.routeLongName ?? "").trim();
   const agency = leg.agencyName ?? "";
+  const detail = modeDetail ?? modeDetailOf(leg.mode, agency, short);
   let base = short || long || leg.displayName || leg.tripShortName || "";
   // Un bus de substitution rail a parfois le routeShortName « TER 421708 » :
   // dans ce cas ce n'est PAS une ligne de train, on garde le nom long / « Navette ».
@@ -191,8 +212,11 @@ export function lineOf(leg: MotisLeg, kind: LegKind = kindOfMotisMode(leg.mode))
     base = long && !/^TER\s*\d*$/i.test(long) ? long : leg.displayName && !/^TER\s*\d*$/i.test(leg.displayName) ? leg.displayName : "Navette";
   }
   if (/transilien/i.test(agency) && /^[A-Z]$/i.test(base)) return "Transilien " + base.toUpperCase();
-  if (kind === "rail" && RER_LETTERS.has(base.toUpperCase()) && base.length === 1) return "RER " + base.toUpperCase();
-  return base;
+  if (detail === "RER" && RER_LETTERS.has(base.toUpperCase()) && base.length === 1) {
+    return "RER " + base.toUpperCase();
+  }
+  // EST → Eurostar, IC → Intercités, métro « 14 » → « métro 14 ».
+  return normalizeLineLabel(base, detail);
 }
 
 function coordOf(stop: MotisStop | undefined): [number, number] {
@@ -204,14 +228,16 @@ export function normalizeItinerary(it: MotisItinerary): RouterItinerary {
   const legs: RouterLeg[] = [];
   for (const leg of it.legs ?? []) {
     const mode = leg.mode ?? "WALK";
-    const kind = kindOfMotisMode(mode);
     const agency = leg.agencyName ?? "";
+    const shortName = (leg.routeShortName ?? "").trim();
+    const detail = kindOfMotisMode(mode) === "connection" ? "Correspondance" : modeDetailOf(mode, agency, shortName);
+    // RER = transport en commun (urban), pas « train » ; TER reste rail.
+    const kind = kindOfMotisLeg(mode, detail);
     const stops = (leg.intermediateStops ?? [])
       .map((s) => s.name)
       .filter((n): n is string => typeof n === "string" && n.length > 0);
     const fromName = leg.from?.name ?? "";
     const toName = leg.to?.name ?? "";
-    const shortName = (leg.routeShortName ?? "").trim();
     // Les extrémités ne comptent pas comme arrêts intermédiaires.
     const inner = stops.filter((n) => n !== fromName && n !== toName);
     // Géométrie réelle du leg (polyline MOTIS) pour le tracé de fin de partie.
@@ -219,8 +245,8 @@ export function normalizeItinerary(it: MotisItinerary): RouterItinerary {
     legs.push({
       mode,
       kind,
-      modeDetail: kind === "connection" ? "Correspondance" : modeDetailOf(mode, agency, shortName),
-      lineOrCarrier: kind === "connection" ? "" : lineOf(leg, kind),
+      modeDetail: detail,
+      lineOrCarrier: kind === "connection" ? "" : lineOf(leg, kind, detail),
       from: fromName,
       to: toName,
       fromCoord: coordOf(leg.from),

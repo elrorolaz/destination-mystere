@@ -2,12 +2,19 @@
 // Sert UNIQUEMENT à la popup de confirmation (« Proposer « Reims » ? »)
 // avant validation. Ne contient aucune donnée de partie : le snap sur la
 // ville la plus proche est une information publique (la carte l'affiche).
-// La validation définitive reste 100 % serveur via POST /api/guess (§7).
+// Pendant une manche, le snap est restreint aux villes « possibles » de
+// l'itinéraire courant (même seuil que /api/cities et /api/guess, lu depuis
+// la session invité côté serveur). La validation définitive reste 100 %
+// serveur via POST /api/guess (§7).
 
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { getSnapper } from "../../../server/cities.ts";
+import { getSnapperForFloor } from "../../../server/cities.ts";
+import { currentRouteFloor } from "../../../server/game-service.ts";
 
 export const dynamic = "force-dynamic";
+
+const GUEST_COOKIE = "dm_guest";
 
 function num(params: URLSearchParams, key: string): number | null {
   const raw = Number(params.get(key));
@@ -22,7 +29,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Coordonnées invalides" }, { status: 400 });
   }
   try {
-    const snapper = await getSnapper();
+    const store = await cookies();
+    const snapper = await getSnapperForFloor(
+      await currentRouteFloor(store.get(GUEST_COOKIE)?.value),
+    );
     const { city, distanceKm } = snapper(lat, lng);
     return NextResponse.json({
       snap: {

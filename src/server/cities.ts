@@ -69,6 +69,36 @@ export async function getSnapper(): Promise<Snapper> {
   return cache.snapper;
 }
 
+// Snappeurs filtrés par seuil de population (cache par seuil) : pendant une
+// manche, seules les villes « possibles » (population ≥ seuil de la
+// destination de l'itinéraire courant) sont cliquables — un clic est rattaché
+// à la ville la plus proche PARMI LES VILLES AUTORISÉES.
+const snappersByFloor = new Map<number, Snapper>();
+
+/**
+ * Snappeur restreint aux villes de population ≥ `minPopulation` : seules ces
+ * villes sont « cliquables » (le snap aboutit sur la référence de cluster de la
+ * ville autorisée la plus proche — la référence d'un cluster est toujours au
+ * moins aussi peuplée que la ville elle-même, donc elle reste autorisée).
+ */
+export async function getSnapperForFloor(minPopulation: number): Promise<Snapper> {
+  const cache = await getCitiesCache();
+  if (!cache) {
+    throw new Error("Base de villes vide : npm run prepare:cities && npm run data:import");
+  }
+  const cached = snappersByFloor.get(minPopulation);
+  if (cached) return cached;
+  const allowed = cache.cities.filter((c) => c.population >= minPopulation);
+  const base = createSnapper(allowed.length > 0 ? allowed : cache.cities);
+  const snapper: Snapper = (lat, lng) => {
+    const r = base(lat, lng);
+    const ref = cache.clusters.refCity(r.city);
+    return { city: ref, distanceKm: haversineKm(lat, lng, ref.lat, ref.lng) };
+  };
+  snappersByFloor.set(minPopulation, snapper);
+  return snapper;
+}
+
 /** Index des clusters (références affichées/cliquables) — pour /api/cities et le tirage du défi. */
 export async function getClusterIndex(): Promise<ClusterIndex> {
   const cache = await getCitiesCache();

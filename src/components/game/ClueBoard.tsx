@@ -1,13 +1,18 @@
 "use client";
 
-// Panneau des indices A → D (M3) : présentation pure, tout vient du serveur.
-// A/B/C/D se débloquent après les essais manqués 1 à 4 ; les essais 5 et 6
-// se jouent sans nouvel indice.
+// Panneau des indices A → E (M3+) : présentation pure, tout vient du serveur.
+// A/B/C/D se débloquent après les essais manqués 1 à 4 ; l'indice E (pays de
+// la destination) après le 5ᵉ — il ne reste alors plus qu'un seul essai.
 
 import type { PublicHint } from "@/lib/game-types";
 import HintBody from "./HintBody";
 
-const KEYS = ["A", "B", "C", "D"] as const;
+const KEYS = ["A", "B", "C", "D", "E"] as const;
+
+const LOCKED_TEXT: Record<string, string> = {
+  D: "Se débloque après le 4ᵉ essai manqué.",
+  E: "Se débloque après le 5ᵉ essai manqué ; il ne reste alors plus qu'un seul essai.",
+};
 
 export default function ClueBoard({
   hints,
@@ -20,7 +25,7 @@ export default function ClueBoard({
   return (
     <section className="dm-card" aria-label="Indices">
       <h2>
-        Indices ({hints.length}/4) · essai {Math.min(attemptCount + 1, 6)}/6
+        Indices ({hints.length}/5) · essai {Math.min(attemptCount + 1, 6)}/6
       </h2>
       {KEYS.map((key) => {
         const hint = byKey.get(key);
@@ -39,9 +44,7 @@ export default function ClueBoard({
           <div className="dm-hint locked" key={key}>
             <p className="dm-hint-title">{key} — Verrouillé</p>
             <p className="dm-hint-body">
-              {key === "D"
-                ? "Se débloque après le 4ᵉ essai manqué ; les deux derniers essais n'en débloquent aucun."
-                : "Se débloque après un essai manqué supplémentaire."}
+              {LOCKED_TEXT[key] ?? "Se débloque après un essai manqué supplémentaire."}
             </p>
           </div>
         );

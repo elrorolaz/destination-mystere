@@ -12,7 +12,9 @@ import {
   MIN_KM_EU_TRAIN,
   MIN_KM_FR,
   NO_AIR_PROBABILITY,
+  minPopulationForSlot,
   selectCityPair,
+  SLOT_MIN_POPULATION,
 } from "../src/server/daily-challenge.ts";
 
 function city(
@@ -43,9 +45,13 @@ const cities: CityRecord[] = [
   city("deu3", "Istanbul", "TR", 41.0082, 28.9784, 15800000, false),
   city("deu4", "Barcelone", "ES", 41.3851, 2.1734, 1620000, true),
   city("deu5", "Amsterdam", "NL", 52.3676, 4.9041, 870000, true),
-  // Villes sans gare / petites : jamais origines, jamais destinations FR
+  // Villes sans gare / petites : jamais origines (sans gare), et filtrées
+  // comme destinations selon le seuil de difficulté.
   city("x1", "Village", "FR", 48.0, 4.0, 6000, false),
   city("x2", "Hameau", "DE", 48.5, 8.0, 8000, false),
+  // Petite ville AVEC gare : origine éligible à TOUS les slots (le seuil de
+  // difficulté ne porte que sur la destination), jamais destination au slot 1.
+  city("x3", "Petite-Ville", "FR", 48.95, 4.5, 9000, true),
 ];
 
 describe("selectCityPair — déterminisme et contraintes", () => {
@@ -61,10 +67,12 @@ describe("selectCityPair — déterminisme et contraintes", () => {
   it("l'origine a une gare et la distance respecte les bornes de la zone", () => {
     for (let day = 1; day <= 28; day++) {
       const key = "2026-11-" + String(day).padStart(2, "0");
-      const pair = selectCityPair(cities, key);
+      // Slot 1 : villes majeures uniquement (≥ 50 000 hab.) — au BUT seulement.
+      const pair = selectCityPair(cities, key, 0, { minPopulation: minPopulationForSlot(1) });
       expect(pair).not.toBeNull();
+      expect(pair!.origin.country).toBe("FR");
       expect(pair!.origin.hasTrainStation).toBe(true);
-      expect(pair!.origin.population).toBeGreaterThanOrEqual(20000);
+      expect(pair!.dest.population).toBeGreaterThanOrEqual(50000);
       const km = haversineKm(pair!.origin.lat, pair!.origin.lng, pair!.dest.lat, pair!.dest.lng);
       if (pair!.zone === "FR") {
         expect(pair!.dest.country).toBe("FR");
@@ -73,7 +81,6 @@ describe("selectCityPair — déterminisme et contraintes", () => {
         expect(pair!.allowAir).toBe(false); // jamais de vol France → France
       } else {
         expect(pair!.dest.country).not.toBe("FR");
-        expect(pair!.dest.population).toBeGreaterThanOrEqual(50000);
         if (pair!.allowAir) {
           expect(km).toBeGreaterThanOrEqual(MIN_KM_EU_AIR);
           expect(km).toBeLessThanOrEqual(MAX_KM_EU);
@@ -167,5 +174,66 @@ describe("selectCityPair — déterminisme et contraintes", () => {
       if (ok) distinctDays++;
     }
     expect(distinctDays).toBe(30);
+  });
+});
+
+describe("échelonnement de la difficulté sur les 3 itinéraires", () => {
+  it("minPopulationForSlot : 50 000 / 20 000 / 0 (toutes les villes) pour les slots 1/2/3", () => {
+    expect(SLOT_MIN_POPULATION).toEqual([50000, 20000, 0]);
+    expect(minPopulationForSlot(1)).toBe(50000);
+    expect(minPopulationForSlot(2)).toBe(20000);
+    expect(minPopulationForSlot(3)).toBe(0);
+    // borné hors plage
+    expect(minPopulationForSlot(0)).toBe(50000);
+    expect(minPopulationForSlot(99)).toBe(0);
+  });
+
+  it("slot 1 (minPopulation 50 000) : jamais de petite ville comme DESTINATION", () => {
+    for (let day = 1; day <= 40; day++) {
+      const key = "2027-01-" + String(day).padStart(2, "0");
+      for (const seed of [key, key + "#r2", key + "#r3"]) {
+        const p = selectCityPair(cities, seed, 0, { minPopulation: minPopulationForSlot(1) });
+        if (!p) continue;
+        expect(p.dest.population).toBeGreaterThanOrEqual(50000);
+        expect(p.dest.id).not.toBe("x1");
+        expect(p.dest.id).not.toBe("x2");
+      }
+    }
+  });
+
+  it("le seuil ne s'applique PAS au départ : une petite ville avec gare peut être origine même au slot 1", () => {
+    // x3 = Petite-Ville, 9 000 hab., gare : éligible comme départ à tous les
+    // slots, alors que la destination reste ≥ 50 000 hab.
+    let sawSmallOrigin = false;
+    for (let day = 1; day <= 60 && !sawSmallOrigin; day++) {
+      const key = "2027-04-" + String(day).padStart(2, "0");
+      for (const seed of [key, key + "#r2", key + "#r3"]) {
+        const p = selectCityPair(cities, seed, 0, { minPopulation: minPopulationForSlot(1) });
+        if (!p) continue;
+        expect(p.dest.population).toBeGreaterThanOrEqual(50000); // but toujours majeur
+        if (p.origin.population < 50000) sawSmallOrigin = true;
+      }
+    }
+    expect(sawSmallOrigin).toBe(true);
+  });
+
+  it("slot 2 (20 000) : le hameau de 8 000 hab. (x2) n'est jamais destination", () => {
+    for (let day = 1; day <= 40; day++) {
+      const key = "2027-02-" + String(day).padStart(2, "0");
+      const p = selectCityPair(cities, key, 0, { minPopulation: minPopulationForSlot(2) });
+      if (!p) continue;
+      expect(p.dest.id).not.toBe("x2");
+      expect(p.dest.population).toBeGreaterThanOrEqual(20000);
+    }
+  });
+
+  it("slot 3 (0) : toutes les villes du corpus sont éligibles comme destination (x1/x2 peuvent tomber)", () => {
+    let sawSmall = false;
+    for (let day = 1; day <= 60 && !sawSmall; day++) {
+      const key = "2027-03-" + String(day).padStart(2, "0");
+      const p = selectCityPair(cities, key, 0, { minPopulation: minPopulationForSlot(3) });
+      if (p && p.dest.population < 20000) sawSmall = true;
+    }
+    expect(sawSmall).toBe(true);
   });
 });

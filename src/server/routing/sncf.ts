@@ -9,6 +9,7 @@
 // Toute erreur (réseau, 401, JSON invalide, aucun trajet) → null : le planner
 // bascule alors sur l'estimation paramétrique.
 
+import { normalizeLineLabel } from "./line-names.ts";
 import type { JourneySegment } from "./types.ts";
 
 const SNCF_BASE_URL = "https://api.sncf.com/v1/coverage/sncf";
@@ -81,14 +82,16 @@ export function kindFromPhysicalMode(physicalMode: string | undefined, fallbackM
 /** Nom de ligne/compagnie d'un tronçon Navitia (indice C). */
 function lineLabelOf(section: NavitiaSection): string {
   const di = section.display_informations;
-  return (
+  const raw =
     di?.commercial_mode?.name ??
     di?.label ??
     di?.network ??
     di?.physical_mode?.name ??
     section.physical_mode?.name ??
-    ""
-  );
+    "";
+  // EST → Eurostar, IC → Intercités, métro « 14 » → « métro 14 ».
+  const modeDetail = di?.physical_mode?.name ?? section.physical_mode?.name ?? "";
+  return normalizeLineLabel(raw, modeDetail);
 }
 
 function coordOf(place: NavitiaPlace | undefined): [number, number] | undefined {

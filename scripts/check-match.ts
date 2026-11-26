@@ -54,7 +54,7 @@ async function main() {
     await sleep(950); // rate limit ~1 req/s
     state = await submitGuess(guest, dest.lat, dest.lng);
     console.log(
-      `✅ manche ${manche} : status=${state.status} score=${state.score} total=${state.totalScore} dest=${state.destination?.name} matchFinished=${state.matchFinished}`,
+      `✅ manche ${manche} : status=${state.status} score=${state.score} (×${state.routeMultiplier}) total=${state.totalScore} dest=${state.destination?.name} matchFinished=${state.matchFinished}`,
     );
     // Anti-fuite : les manches non terminées ne doivent pas révéler leur destination.
     const json = JSON.stringify(state);

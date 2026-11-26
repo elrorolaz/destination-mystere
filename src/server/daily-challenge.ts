@@ -33,10 +33,21 @@ export const MIN_KM_EU_AIR = 600;
 export const MAX_KM_EU = 1800;
 /** Probabilité d'un itinéraire SANS avion (100 % terrestre) : 40 %. */
 export const NO_AIR_PROBABILITY = 0.4;
-/** Populations minimales : départ avec gare, destination devinable. */
-export const MIN_POP_ORIGIN = 20000;
-export const MIN_POP_DEST_FR = 30000;
-export const MIN_POP_DEST_EU = 50000;
+/**
+ * Population minimale (incluse) exigée de la DESTINATION selon le slot de
+ * l'itinéraire dans la journée — difficulté échelonnée (ne concerne QUE la
+ * ville d'arrivée ; le départ peut être n'importe quelle ville du corpus) :
+ *   slot 1 → uniquement les villes majeures (≥ 50 000 hab.) ;
+ *   slot 2 → villes de plus de 20 000 hab. (≥ 20 000) ;
+ *   slot 3 → toutes les villes du corpus (0 = aucune borne).
+ */
+export const SLOT_MIN_POPULATION: readonly number[] = [50000, 20000, 0];
+
+/** Population minimale de la DESTINATION pour le slot (1..3, borné). */
+export function minPopulationForSlot(slot: number): number {
+  const i = Math.min(Math.max(Math.trunc(slot) - 1, 0), SLOT_MIN_POPULATION.length - 1);
+  return SLOT_MIN_POPULATION[i] ?? 0;
+}
 
 export type ChallengeZone = "FR" | "EU";
 
@@ -60,6 +71,12 @@ export interface SelectPairOptions {
    * jour : jamais réutilisées (les 3 itinéraires du jour sont distincts).
    */
   exclude?: ReadonlySet<string>;
+  /**
+   * Population minimale (incluse) exigée de la DESTINATION uniquement :
+   * échelonnement de la difficulté (minPopulationForSlot(slot)). Le départ
+   * n'est PAS contraint par ce seuil. Défaut 0 = toutes les villes du corpus.
+   */
+  minPopulation?: number;
 }
 
 /**
@@ -69,7 +86,8 @@ export interface SelectPairOptions {
  *
  * Tirage : 40 % d'itinéraires SANS avion (NO_AIR_PROBABILITY) — zone FR ou
  * Europe proche en train ; sinon Europe avec avion (assez loin). Départ
- * français avec gare, bornes de distance selon la zone. `opts.isRef`
+ * français avec gare (n'importe quelle ville du corpus, sans borne de
+ * population), bornes de distance selon la zone. `opts.isRef`
  * (design clusters) restreint aux villes de référence de cluster : seules
  * elles sont affichées et cliquables sur la carte.
  */
@@ -80,9 +98,13 @@ export function selectCityPair(
   opts: SelectPairOptions = {},
 ): CityPair | null {
   const onlyRefs = (c: CityRecord): boolean => !opts.isRef || opts.isRef(c.id);
+  // Difficulté échelonnée : le seuil de population ne filtre QUE la
+  // destination. Le départ = n'importe quelle ville française avec gare du
+  // corpus (aucune borne de population), à chaque itinéraire.
+  const minPop = opts.minPopulation ?? 0;
   const rng = prngFromDateKey(attempt === 0 ? dateKey : dateKey + "#" + attempt);
   const origins = cities.filter(
-    (c) => c.country === "FR" && c.hasTrainStation && c.population >= MIN_POP_ORIGIN && onlyRefs(c),
+    (c) => c.country === "FR" && c.hasTrainStation && onlyRefs(c),
   );
   if (origins.length === 0) return null;
 
@@ -91,10 +113,12 @@ export function selectCityPair(
   // Jamais de vol France → France ; avec avion uniquement en zone EU tirée « avec avion ».
   const allowAir = zone === "FR" ? false : (opts.forceAllowAir ?? !noAir);
 
-  const dests =
-    zone === "FR"
-      ? cities.filter((c) => c.country === "FR" && c.population >= MIN_POP_DEST_FR && onlyRefs(c))
-      : cities.filter((c) => c.country !== "FR" && c.population >= MIN_POP_DEST_EU && onlyRefs(c));
+  const dests = cities.filter(
+    (c) =>
+      (zone === "FR" ? c.country === "FR" : c.country !== "FR") &&
+      c.population >= minPop &&
+      onlyRefs(c),
+  );
   if (dests.length === 0) return null;
 
   const minKm = zone === "FR" ? MIN_KM_FR : allowAir ? MIN_KM_EU_AIR : MIN_KM_EU_TRAIN;
@@ -172,6 +196,9 @@ export async function generateDailyChallenge(
       forceZone: firstZone ?? undefined,
       forceAllowAir: firstAllowAir ?? undefined,
       exclude: opts.exclude,
+      // Difficulté échelonnée : le seuil de population ne filtre QUE la
+      // destination, selon le slot.
+      minPopulation: minPopulationForSlot(slot),
     });
     if (!pair) break;
     if (firstZone === null) {

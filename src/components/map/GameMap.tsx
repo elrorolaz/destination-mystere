@@ -34,6 +34,12 @@ export interface GameMapProps {
    * zéro (épingles de propositions, épingle destination, tracés, origine).
    */
   resetKey: number;
+  /**
+   * Manche en cours (1..3) : au changement, la constellation de villes est
+   * rechargée — seules les villes « possibles » de la manche (population ≥
+   * seuil de sa destination) sont affichées/cliquables (filtre serveur).
+   */
+  routeIndex: number;
   /** Fond de carte choisi (design) : thème appliqué par surcouche. */
   mapTheme: MapThemeId;
 }
@@ -385,6 +391,15 @@ export default function GameMap(props: GameMapProps) {
     map.getCanvas().style.cursor = props.active ? "crosshair" : "";
     if (!props.active) closeConfirmPopup();
   }, [props.active, loadTick]);
+
+  // Changement de manche (routeIndex) : on recharge la constellation de villes
+  // — le serveur ne sert que les villes « possibles » de la nouvelle manche
+  // (population ≥ seuil de destination de l'itinéraire).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || loadTick === 0) return;
+    void loadVisibleCities(map);
+  }, [props.routeIndex, loadTick]);
 
   // Épingle du point de départ (or, pulsation) — recréée si l'origine change.
   useEffect(() => {

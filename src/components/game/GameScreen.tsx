@@ -9,14 +9,17 @@
 // 3e). Un clic en-dehors du panneau montre l'itinéraire tracé sur la carte,
 // avec un bouton « itinéraire suivant » bien visible. Après le 3e itinéraire,
 // un second panneau donne le résultat final (scores des 3 itinéraires, score
-// total) et permet de relancer une nouvelle partie ; clic en-dehors → les 3
-// itinéraires tracés sur la carte, chacun avec sa couleur et son numéro.
+// total) avec des boutons de PARTAGE sans spoiler ; en production on ne peut
+// pas rejouer (une seule partie par jour — le rejouer n'existe qu'en dev) ;
+// clic en-dehors → les 3 itinéraires tracés sur la carte, chacun avec sa
+// couleur et son numéro.
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
+import { formatDestTier } from "@/lib/format/difficulty";
 import GameMap from "@/components/map/GameMap";
 import {
   getStoredMapTheme,
@@ -212,7 +215,11 @@ export default function GameScreen() {
     }
   }, [busy, state, loadTraces]);
 
-  /** « 🔄 Nouvelle partie » (écran final) : efface le match du jour et recharge. */
+  /**
+   * « 🔄 Rejouer » (écran final, DEV uniquement) : efface le match du jour
+   * et recharge. En production, une seule partie par jour : le bouton n'est
+   * pas rendu et DELETE /api/session renvoie 403.
+   */
   const handleRestart = useCallback(async () => {
     try {
       const res = await fetch("/api/session", { method: "DELETE" });
@@ -309,7 +316,9 @@ export default function GameScreen() {
     );
   }
 
-  const potentialScore = SCORES[state.attemptCount] ?? 0;
+  // Score potentiel = score standard de l'essai × multiplicateur de
+  // l'itinéraire (×1 / ×1,5 / ×2 selon la difficulté, servi par le serveur).
+  const potentialScore = Math.round((SCORES[state.attemptCount] ?? 0) * state.routeMultiplier);
   // Essais restants et indicateur « dernier essai » (6 essais max, §1.2).
   const remaining = Math.max(0, 6 - state.attemptCount);
   const isLastAttempt = state.status === "ACTIVE" && remaining === 1;
@@ -335,8 +344,14 @@ export default function GameScreen() {
       </header>
 
       <section className="dm-challenge-bar">
-        <span className="dm-route-indicator" aria-label={`Itinéraire ${state.routeIndex} sur ${state.routeCount}`}>
+        <span
+          className="dm-route-indicator"
+          aria-label={`Itinéraire ${state.routeIndex} sur ${state.routeCount}, multiplicateur x${state.routeMultiplier}, destinations possibles : ${formatDestTier(state.destMinPopulation)}`}
+          title={`Niveau de difficulté — destinations possibles : ${formatDestTier(state.destMinPopulation)} · score ×${state.routeMultiplier}`}
+        >
           🧭 Itinéraire <strong>{state.routeIndex}/{state.routeCount}</strong>
+          <strong className="dm-route-mult">×{state.routeMultiplier}</strong>
+          <span className="dm-route-tier">🎯 {formatDestTier(state.destMinPopulation)}</span>
         </span>
         <span>
           Départ : <strong>{state.origin.name}</strong> ({state.origin.country})
@@ -434,6 +449,7 @@ export default function GameScreen() {
           onGuess={handleGuess}
           onMapClick={handleMapClick}
           resetKey={resetKey}
+          routeIndex={state.routeIndex}
           mapTheme={mapTheme}
         />
         <aside className="dm-panel">
@@ -467,7 +483,9 @@ export default function GameScreen() {
         <FinalScreen
           state={state}
           onClose={() => setFinalOpen(false)}
-          onRestart={handleRestart}
+          // Production : une seule partie par jour, AUCUN bouton rejouer.
+          // Dev : on peut relancer des parties à volonté (DELETE /api/session).
+          onRestart={isDev ? handleRestart : undefined}
         />
       ) : null}
 

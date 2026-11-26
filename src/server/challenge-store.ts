@@ -16,7 +16,11 @@ import { challengeDateFromKey, parisDateKey } from "../lib/paris-date.ts";
 import { ROUTE_COUNT } from "../lib/game-types.ts";
 import type { DailyJourney, Journey } from "./routing/types.ts";
 import { mergeEdgeConnections } from "./routing/cleanup.ts";
-import { generateDailyChallenge, upsertDailyRoute } from "./daily-challenge.ts";
+import {
+  generateDailyChallenge,
+  minPopulationForSlot,
+  upsertDailyRoute,
+} from "./daily-challenge.ts";
 import { pickRandomChallenge } from "./dev-journey.ts";
 
 export type RouteWithCities = Prisma.DailyRouteGetPayload<{
@@ -128,16 +132,18 @@ export async function generateRouteForSlot(
   const mode = devFixtureMode();
   const exclude = await excludedPairs(date);
 
+  // Difficulté échelonnée : seuil de population du couple selon le slot.
+  const minPop = { minPopulation: minPopulationForSlot(slot) };
   if (mode === "random") {
     for (let i = 0; i < 6; i++) {
-      const pick = await pickRandomChallenge();
+      const pick = await pickRandomChallenge(Math.random, minPop);
       if (!pick) break;
       if (exclude.has(pick.originCityId + ">" + pick.destCityId)) continue;
       await storeRoute(date, slot, pick.originCityId, pick.destCityId, pick.journey);
       return getRoute(date, slot);
     }
     // Dernier recours : accepter une paire déjà prise plutôt que rien.
-    const pick = await pickRandomChallenge();
+    const pick = await pickRandomChallenge(Math.random, minPop);
     if (pick) {
       await storeRoute(date, slot, pick.originCityId, pick.destCityId, pick.journey);
       return getRoute(date, slot);
@@ -159,7 +165,7 @@ export async function generateRouteForSlot(
     // Repli : d'abord un tirage aléatoire réel (évite de dupliquer le fixture
     // d'un autre slot), puis le fixture figé en dernier recours (§6.5).
     for (let i = 0; i < 8; i++) {
-      const pick = await pickRandomChallenge();
+      const pick = await pickRandomChallenge(Math.random, minPop);
       if (!pick) break;
       if (exclude.has(pick.originCityId + ">" + pick.destCityId)) continue;
       await storeRoute(date, slot, pick.originCityId, pick.destCityId, pick.journey);
@@ -217,7 +223,9 @@ export async function rerollTodayRoutes(): Promise<RouteWithCities[]> {
   for (let slot = 1; slot <= ROUTE_COUNT; slot++) {
     let stored: RouteWithCities | null = null;
     for (let i = 0; i < 6 && !stored; i++) {
-      const pick = await pickRandomChallenge();
+      const pick = await pickRandomChallenge(Math.random, {
+        minPopulation: minPopulationForSlot(slot),
+      });
       if (!pick) break;
       if (exclude.has(pick.originCityId + ">" + pick.destCityId)) continue;
       exclude.add(pick.originCityId + ">" + pick.destCityId);

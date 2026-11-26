@@ -158,10 +158,17 @@ describe("buildPublicState — anti-triche, une manche à la fois", () => {
     expect(state.routeResults[0]!.destination?.name).toBe("Vienne");
     expect(state.routeResults[0]!.origin?.name).toBe("Reims");
     expect(state.routeResults[0]!.lastDistanceKm).toBe(0); // essai gagnant à 0 km
+    expect(state.routeResults[0]!.squares).toBe("🟥🟥🟩");
     expect(state.routeResults[1]!.status).toBe("PENDING");
     expect(state.routeResults[1]!.destination).toBeNull();
+    expect(state.routeResults[1]!.squares).toBe("");
     expect(state.totalScore).toBe(700);
     expect(state.matchFinished).toBe(false);
+    // Multiplicateur de la manche courante (itinéraire 1 → ×1) et seuil de
+    // difficulté de la destination (itinéraire 1 → 50 000 hab.).
+    expect(state.routeMultiplier).toBe(1);
+    expect(state.destMinPopulation).toBe(50000);
+    expect(state.routeResults.map((r) => r.destMinPopulation)).toEqual([50000, 20000, 0]);
   });
 
   it("affiche la distance au but par proposition et publie le journey après un échec", () => {
@@ -173,10 +180,13 @@ describe("buildPublicState — anti-triche, une manche à la fois", () => {
     expect(state.guesses[0]!.distanceKm).toBeGreaterThan(900);
     expect(state.journey).not.toBeNull();
     expect(state.journey?.totalDurationMin).toBe(325);
-    // Six échecs → indices A à D uniquement (les essais 5 et 6 n'en ajoutent pas).
-    expect(state.hints.map((h) => h.key)).toEqual(["A", "B", "C", "D"]);
+    // Six échecs → indices A à E (E = pays de la destination après le 5e échec).
+    expect(state.hints.map((h) => h.key)).toEqual(["A", "B", "C", "D", "E"]);
+    expect(state.hints[4]!.body).toContain("Autriche"); // Vienne (AT)
     // Manche perdue : lastDistanceKm = distance du dernier essai.
     expect(state.routeResults[0]!.lastDistanceKm).toBeGreaterThan(900);
+    // Carrés de la manche (pour le partage sans spoiler) : 6 essais manqués.
+    expect(state.routeResults[0]!.squares).toBe("🟥🟥🟥🟥🟥🟥");
   });
 
   it("match terminé : les 3 manches sont révélées, totalScore = somme, matchFinished", () => {
@@ -191,6 +201,14 @@ describe("buildPublicState — anti-triche, une manche à la fois", () => {
     );
     expect(state.matchFinished).toBe(true);
     expect(state.totalScore).toBe(1000 + 42 + 550);
+    // Manche courante = 3e itinéraire → multiplicateur ×2, seuil 0 (toutes villes).
+    expect(state.routeMultiplier).toBe(2);
+    expect(state.destMinPopulation).toBe(0);
+    expect(state.routeResults.map((r) => r.squares)).toEqual([
+      "🟩",
+      "🟥🟥🟥🟥🟥🟥",
+      "🟥🟥🟥🟩",
+    ]);
     expect(state.routeResults.map((r) => r.status)).toEqual(["WON", "LOST", "WON"]);
     expect(state.routeResults.map((r) => r.destination?.name)).toEqual([
       "Vienne",

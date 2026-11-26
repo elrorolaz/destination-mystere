@@ -22,12 +22,19 @@ interface LayerDef {
 }
 
 function fakeMap() {
-  const sources = new Map<string, unknown>();
+  const sources = new Map<string, { def: unknown; data: unknown; setData: (d: unknown) => void }>();
   const layers = new Map<string, LayerDef>();
   const map = {
     getSource: (id: string) => sources.get(id),
     addSource: (id: string, def: unknown) => {
-      sources.set(id, def);
+      const src = {
+        def,
+        data: (def as { data?: unknown })?.data,
+        setData(d: unknown) {
+          src.data = d;
+        },
+      };
+      sources.set(id, src);
     },
     getLayer: (id: string) => layers.get(id),
     addLayer: (l: LayerDef) => {
@@ -112,5 +119,33 @@ describe("RouteOverlay — couleurs par itinéraire et plein/pointillés", () =>
     removeRouteOverlay(map);
     expect(layers.size).toBe(0);
     expect(sources.size).toBe(0);
+  });
+
+  it("passage à l'itinéraire suivant : addRouteOverlay supprime le tracé de l'itinéraire ABSENT des nouveaux tracés", () => {
+    const { map, layers, sources } = fakeMap();
+    // Manche 1 terminée : seul l'itinéraire 1 est tracé.
+    const tracesRoute1: SegmentTrace[] = [
+      { index: 0, kind: "rail", routeIndex: 1, followsTracks: true, geometry: [[48.8, 2.3], [49.2, 4.0]] },
+    ];
+    addRouteOverlay(map, tracesRoute1, palette);
+    expect(layers.get("dm-r1-rail")).toBeDefined();
+
+    // Manche 2 terminée : seuls les tracés de l'itinéraire 2 sont servis —
+    // l'itinéraire 1 doit disparaître de la carte (jamais de superposition).
+    const tracesRoute2: SegmentTrace[] = [
+      { index: 1, kind: "air", routeIndex: 2, followsTracks: true, geometry: [[49.0, 2.5], [48.1, 16.5]] },
+    ];
+    addRouteOverlay(map, tracesRoute2, palette);
+    expect(layers.get("dm-r1-rail")).toBeUndefined();
+    expect(sources.get("dm-r1-rail-src")).toBeUndefined();
+    expect(layers.get("dm-r2-air")).toBeDefined();
+    expect(layers.get("dm-r2-air")?.paint?.["line-color"]).toBe("#34C759");
+
+    // Match terminé : les 3 itinéraires tracés → l'itinéraire 2 disparaît si
+    // seuls 1 et 3 sont servis (cas théorique) ; ici les 3 restent.
+    addRouteOverlay(map, traces, palette);
+    expect(layers.get("dm-r1-rail")).toBeDefined();
+    expect(layers.get("dm-r2-air")).toBeDefined();
+    expect(layers.get("dm-r3-rail")).toBeDefined();
   });
 });

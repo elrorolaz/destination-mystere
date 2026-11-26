@@ -21,9 +21,16 @@ import {
   getRoute,
   type RouteWithCities,
 } from "./challenge-store.ts";
-import { getSnapper } from "./cities.ts";
+import { getSnapperForFloor } from "./cities.ts";
+import { minPopulationForSlot } from "./daily-challenge.ts";
 import { unlockedHints } from "./hints.ts";
-import { MAX_ATTEMPTS, proximityScore, standardScore } from "./scoring.ts";
+import {
+  MAX_ATTEMPTS,
+  applyRouteMultiplier,
+  proximityScore,
+  routeScoreMultiplier,
+  standardScore,
+} from "./scoring.ts";
 import type { Journey } from "./routing/types.ts";
 
 export class GameError extends Error {
@@ -32,6 +39,21 @@ export class GameError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+/**
+ * Seuil de population de la DESTINATION pour la manche courante d'un invité
+ * (difficulté échelonnée : 50 000 / 20 000 / 0 selon l'itinéraire 1/2/3).
+ * Utilisé pour n'afficher et ne rendre cliquables QUE les villes possibles.
+ * Sans session (pas encore de partie) : seuil du 1ᵉʳ itinéraire.
+ */
+export async function currentRouteFloor(guestKey: string | undefined): Promise<number> {
+  if (!guestKey) return minPopulationForSlot(1);
+  const challengeDate = challengeDateFromKey(parisDateKey());
+  const session = await db.gameSession.findUnique({
+    where: { guestKey_challengeDate: { guestKey, challengeDate } },
+  });
+  return minPopulationForSlot(session ? session.currentRouteIndex : 1);
 }
 
 /** Match du jour d'un invité, identifié par son cookie httpOnly (M3 ; M4 : comptes). */
@@ -148,6 +170,8 @@ export function buildPublicState(
         origin: null,
         destination: null,
         lastDistanceKm: null,
+        squares: "",
+        destMinPopulation: minPopulationForSlot(r.index),
       };
     }
     const finished = r.session.status !== "ACTIVE";
@@ -166,6 +190,8 @@ export function buildPublicState(
               haversineKm(lastGuess.snappedCity.lat, lastGuess.snappedCity.lng, dest.lat, dest.lng),
             )
           : null,
+      squares: r.guesses.map((g) => (g.correct ? "🟩" : "🟥")).join(""),
+      destMinPopulation: minPopulationForSlot(r.index),
     };
   });
 
@@ -198,6 +224,9 @@ export function buildPublicState(
     date: dateKey,
     routeIndex: cur.route.routeIndex,
     routeCount: ROUTE_COUNT,
+    routeMultiplier: routeScoreMultiplier(cur.route.routeIndex),
+    /** Seuil de population de la destination de la manche courante (niveau de difficulté). */
+    destMinPopulation: minPopulationForSlot(cur.route.routeIndex),
     matchFinished,
     totalScore,
     routeResults,
@@ -207,7 +236,9 @@ export function buildPublicState(
     attemptCount: session.attemptCount,
     score: session.score,
     guesses: publicGuesses,
-    hints: unlockedHints(journey, failed),
+    // Indice E : le pays de la destination est un indice comme les autres
+    // (débloqué après le 5e essai manqué) — servi uniquement par le serveur.
+    hints: unlockedHints(journey, failed, dest.country),
     destination: finished ? toPublicCity(dest) : null,
     journey: finished
       ? {
@@ -314,7 +345,9 @@ export async function submitGuess(
   }
   lastGuessAt.set(guestKey, now);
 
-  const snapper = await getSnapper();
+  // Snap restreint aux villes « possibles » de la manche courante (population
+  // ≥ seuil de la destination de l'itinéraire) : seules elles sont cliquables.
+  const snapper = await getSnapperForFloor(minPopulationForSlot(routeIndex));
   const { city } = snapper(clickLat, clickLng);
 
   const attemptNumber = routeSession.attemptCount + 1;
@@ -335,12 +368,19 @@ export async function submitGuess(
   let finishedAt: Date | null = routeSession.finishedAt;
   if (correct) {
     status = "WON";
-    score = standardScore(attemptNumber);
+    // Score standard × multiplicateur de l'itinéraire (×1 / ×1,5 / ×2).
+    score = applyRouteMultiplier(standardScore(attemptNumber), routeIndex);
     finishedAt = new Date();
   } else if (attemptNumber >= MAX_ATTEMPTS) {
     status = "LOST";
-    score = proximityScore(
-      haversineKm(city.lat, city.lng, route.destinationCity.lat, route.destinationCity.lng),
+    // Score de proximité : la DERNIÈRE réponse rapporte 250 × (1 − d/300)
+    // (multiplicateur inversement proportionnel à sa distance au but, 0 si
+    // d > 300 km), puis × multiplicateur de l'itinéraire.
+    score = applyRouteMultiplier(
+      proximityScore(
+        haversineKm(city.lat, city.lng, route.destinationCity.lat, route.destinationCity.lng),
+      ),
+      routeIndex,
     );
     finishedAt = new Date();
   }

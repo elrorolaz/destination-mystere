@@ -1,0 +1,61 @@
+// Noms de pays (français) à partir des codes ISO 3166-1 alpha-2 du corpus
+// européen (scripts/lib/europe.ts : EUROPE_COUNTRY_CODES). Utilisé notamment
+// par l'indice E « pays de la destination » — un seul endroit à maintenir.
+
+const COUNTRY_NAMES: Record<string, string> = {
+  AD: "Andorre",
+  AL: "Albanie",
+  AT: "Autriche",
+  BA: "Bosnie-Herzégovine",
+  BE: "Belgique",
+  BG: "Bulgarie",
+  CH: "Suisse",
+  CY: "Chypre",
+  CZ: "Tchéquie",
+  DE: "Allemagne",
+  DK: "Danemark",
+  EE: "Estonie",
+  ES: "Espagne",
+  FI: "Finlande",
+  FO: "Îles Féroé",
+  FR: "France",
+  GB: "Royaume-Uni",
+  GG: "Guernesey",
+  GI: "Gibraltar",
+  GR: "Grèce",
+  HR: "Croatie",
+  HU: "Hongrie",
+  IE: "Irlande",
+  IM: "Île de Man",
+  IS: "Islande",
+  IT: "Italie",
+  JE: "Jersey",
+  LI: "Liechtenstein",
+  LT: "Lituanie",
+  LU: "Luxembourg",
+  LV: "Lettonie",
+  MC: "Monaco",
+  MD: "Moldavie",
+  ME: "Monténégro",
+  MK: "Macédoine du Nord",
+  MT: "Malte",
+  NL: "Pays-Bas",
+  NO: "Norvège",
+  PL: "Pologne",
+  PT: "Portugal",
+  RO: "Roumanie",
+  RS: "Serbie",
+  SE: "Suède",
+  SI: "Slovénie",
+  SK: "Slovaquie",
+  SM: "Saint-Marin",
+  TR: "Turquie",
+  UA: "Ukraine",
+  VA: "Vatican",
+  XK: "Kosovo",
+};
+
+/** Nom français d'un code pays ; le code lui-même si inconnu. */
+export function countryName(code: string): string {
+  return COUNTRY_NAMES[code] ?? code;
+}

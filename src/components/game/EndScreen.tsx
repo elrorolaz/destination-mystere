@@ -9,6 +9,7 @@
 import { useState } from "react";
 import type { PublicChallengeState, SegmentTrace } from "@/lib/game-types";
 import { formatDuration } from "@/lib/format/duration";
+import { formatDestTier } from "@/lib/format/difficulty";
 
 const KIND_EMOJI: Record<string, string> = {
   rail: "🚆",
@@ -99,6 +100,8 @@ export default function EndScreen({
         </button>
         <p className="dm-end-route-badge">
           Itinéraire {state.routeIndex} / {state.routeCount}
+          {` · score ×${state.routeMultiplier}`}
+          {` · ${formatDestTier(state.destMinPopulation)}`}
           {state.matchFinished ? "" : ` — score total : ${state.totalScore} pts`}
         </p>
         <h2>{won ? "🎉 Destination trouvée !" : "😵 C'était…"}</h2>

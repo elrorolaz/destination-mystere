@@ -3,9 +3,11 @@
 // pour Rennes → Mantes-la-Jolie (TGV INOUI 8604 + Transilien N).
 
 import { describe, expect, it } from "vitest";
+import { normalizeLineLabel } from "../src/server/routing/line-names.ts";
 import {
   itineraryScore,
   itineraryToSegments,
+  kindOfMotisLeg,
   kindOfMotisMode,
   lineOf,
   modeDetailOf,
@@ -152,6 +154,53 @@ describe("labels de lignes réels (correction M2 : plus de « TER B » pour le R
   it("TER reste TER ; un bus « TER » (substitution) n'est pas étiqueté TER", () => {
     expect(modeDetailOf("REGIONAL_RAIL", "SNCF", "")).toBe("TER");
     expect(lineOf({ mode: "BUS", routeShortName: "TER", routeLongName: "Navette gare", agencyName: "SNCF" }, "urban")).toBe("Navette gare");
+  });
+
+  it("kindOfMotisLeg : le RER est un transport en commun (urban), le TER reste un train (rail)", () => {
+    // RER (REGIONAL_RAIL en ligne A–E) → urban, PAS rail.
+    expect(kindOfMotisLeg("REGIONAL_RAIL", "RER")).toBe("urban");
+    // TER / TGV / Intercités → rail (train).
+    expect(kindOfMotisLeg("REGIONAL_RAIL", "TER")).toBe("rail");
+    expect(kindOfMotisLeg("HIGHSPEED_RAIL", "TGV")).toBe("rail");
+    expect(kindOfMotisLeg("SUBWAY", "Métro")).toBe("urban");
+    expect(kindOfMotisLeg("WALK", "Correspondance")).toBe("connection");
+  });
+
+  it("normalizeItinerary : un leg RER B produit un segment urban « RER B » (pas un train)", () => {
+    const itin = normalizeItinerary({
+      duration: 34 * 60,
+      transfers: 0,
+      startTime: "2026-11-23T07:00:00Z",
+      endTime: "2026-11-23T07:34:00Z",
+      legs: [
+        { mode: "REGIONAL_RAIL", duration: 34 * 60, routeShortName: "B", agencyName: "SNCF", from: { name: "Gare du Nord (RER)" }, to: { name: "Aéroport CDG 2" } },
+      ],
+    } as never);
+    const segs = itineraryToSegments(itin);
+    expect(segs[0]!.kind).toBe("urban"); // transport en commun, pas « train »
+    expect(segs[0]!.modeDetail).toBe("RER");
+    expect(segs[0]!.lineOrCarrier).toBe("RER B");
+  });
+
+  it("normalizeLineLabel : EST → Eurostar, IC → Intercités, métro « 14 » → « métro 14 »", () => {
+    expect(normalizeLineLabel("EST 9050")).toBe("Eurostar");
+    expect(normalizeLineLabel("EST")).toBe("Eurostar");
+    expect(normalizeLineLabel("IC 1234")).toBe("Intercités");
+    expect(normalizeLineLabel("IC")).toBe("Intercités");
+    expect(normalizeLineLabel("14", "Métro")).toBe("métro 14");
+    expect(normalizeLineLabel("M14", "Métro")).toBe("métro 14");
+    // Un numéro de bus n'est PAS préfixé « métro ».
+    expect(normalizeLineLabel("91", "Bus")).toBe("91");
+    // Les autres lignes sont inchangées.
+    expect(normalizeLineLabel("TGV INOUI")).toBe("TGV INOUI");
+    expect(normalizeLineLabel("RER B")).toBe("RER B");
+  });
+
+  it("lineOf applique la normalisation : EST 9050 → Eurostar, IC 12 → Intercités, métro 14 → métro 14", () => {
+    expect(lineOf({ mode: "HIGHSPEED_RAIL", routeShortName: "EST 9050", agencyName: "SNCF" } as never)).toBe("Eurostar");
+    expect(lineOf({ mode: "REGIONAL_RAIL", routeShortName: "IC 12", agencyName: "SNCF" } as never)).toBe("Intercités");
+    expect(lineOf({ mode: "SUBWAY", routeShortName: "14", agencyName: "RATP" } as never)).toBe("métro 14");
+    expect(lineOf({ mode: "SUBWAY", routeShortName: "M4", agencyName: "MVG" } as never)).toBe("métro 4");
   });
 
   it("itineraryToSegments conserve les horaires réels de chaque leg (vérification par leg)", () => {

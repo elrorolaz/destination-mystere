@@ -1,7 +1,13 @@
-// GET /api/cities — couche « constellation » de la carte (M3).
+// GET /api/cities — couche « constellation » de la carte (M3+).
 // La carte demande les villes visibles selon le zoom (minPopulation croissant
 // quand on dézoome) ; les bornes sont clampées côté serveur et le volume
 // plafonné. Aucune donnée de partie ici : uniquement le référentiel de villes.
+//
+// Difficulté échelonnée : PENDANT UNE MANCHE, seules les villes « possibles »
+// (population ≥ seuil de la destination de l'itinéraire courant, lu depuis la
+// session invité — jamais depuis un paramètre client) sont servies : les autres
+// ne sont NI affichées NI cliquables. Le seuil du zoom s'applique en plus
+// (max des deux).
 //
 // Design : UNE SEULE entrée par agglomération affichée. Chaque ville est
 // rattachée à la ville la plus peuplée dans un rayon de 15 km (cluster,
@@ -10,15 +16,18 @@
 // de leur parent à l'import) ne sont pas servies. dedupeCitiesByName reste en
 // filet de sécurité. Le snap serveur aboutit lui aussi sur la référence.
 
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../lib/db.ts";
 import { dedupeCitiesByName } from "../../../lib/cities-dedupe.ts";
 import { getCitiesCache } from "../../../server/cities.ts";
+import { currentRouteFloor } from "../../../server/game-service.ts";
 import type { CityMapPoint } from "../../../lib/game-types.ts";
 
 export const dynamic = "force-dynamic";
 
 const MAX_CITIES = 6000;
+const GUEST_COOKIE = "dm_guest";
 
 function clampParam(params: URLSearchParams, key: string, min: number, max: number, dflt: number): number {
   const raw = Number(params.get(key));
@@ -32,7 +41,12 @@ export async function GET(req: NextRequest) {
   const maxLat = clampParam(params, "maxLat", -90, 90, 72);
   const minLng = clampParam(params, "minLng", -180, 180, -12);
   const maxLng = clampParam(params, "maxLng", -180, 180, 42);
-  const minPopulation = clampParam(params, "minPopulation", 0, 20_000_000, 80_000);
+  const zoomMinPopulation = clampParam(params, "minPopulation", 0, 20_000_000, 80_000);
+  // Seuil de difficulté de la manche courante (serveur, depuis la session) :
+  // seules les villes possibles sont affichées.
+  const store = await cookies();
+  const floor = await currentRouteFloor(store.get(GUEST_COOKIE)?.value);
+  const minPopulation = Math.max(zoomMinPopulation, floor);
 
   const cache = await getCitiesCache();
   if (!cache) {

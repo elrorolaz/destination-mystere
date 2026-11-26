@@ -111,13 +111,40 @@ function routeLabelPoint(traces: SegmentTrace[], route: number): LngLat | null {
   return mid ? [mid[1], mid[0]] : null;
 }
 
+/** Groupes de tracé dessinés par itinéraire (préfixes de couches « dm-r<n>- »). */
+const KIND_IDS = ["conn", "air", "urban", "rail"];
+
+/** Supprime les couches/sources d'un itinéraire (préfixe « dm-r<n>- »). */
+function removeRouteLayers(map: MLMap, route: number): void {
+  const prefix = "dm-r" + route + "-";
+  for (const kind of KIND_IDS) {
+    for (const id of [prefix + kind, prefix + kind + "-glow"]) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    if (map.getSource(prefix + kind + "-src")) map.removeSource(prefix + kind + "-src");
+  }
+  for (const id of [prefix + "air-icon", prefix + "label"]) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  for (const id of [prefix + "air-icon-src", prefix + "label-src"]) {
+    if (map.getSource(id)) map.removeSource(id);
+  }
+}
+
 /**
  * Ajoute (ou met à jour) les couches de tracé de tous les itinéraires présents
  * dans `traces`, avec une couleur et un numéro par itinéraire.
+ *
+ * Auto-nettoyante : les itinéraires ABSENTS de `traces` sont supprimés —
+ * au passage à l'itinéraire suivant, l'ancien tracé ne doit JAMAIS rester
+ * affiché sur la carte (même si `traces` passe de non-vide à non-vide).
  */
 export function addRouteOverlay(map: MLMap, traces: SegmentTrace[], palette: GamePalette): void {
   if (traces.length === 0) return;
   const routes = routeIndexesOf(traces);
+  for (let r = 1; r <= ROUTE_COUNT; r++) {
+    if (!routes.includes(r)) removeRouteLayers(map, r);
+  }
   const groups = groupsOf();
 
   for (const route of routes) {
@@ -243,38 +270,10 @@ export function addRouteOverlay(map: MLMap, traces: SegmentTrace[], palette: Gam
   }
 }
 
-const KIND_IDS = ["conn", "air", "urban", "rail"];
-
-/** Toutes les couches de tracé (tous itinéraires) — pour le nettoyage. */
-function overlayLayerIds(): string[] {
-  const ids: string[] = [];
-  for (let r = 1; r <= ROUTE_COUNT; r++) {
-    const prefix = "dm-r" + r + "-";
-    for (const kind of KIND_IDS) ids.push(prefix + kind, prefix + kind + "-glow");
-    ids.push(prefix + "air-icon", prefix + "label");
-  }
-  return ids;
-}
-
-function overlaySourceIds(): string[] {
-  const ids: string[] = [];
-  for (let r = 1; r <= ROUTE_COUNT; r++) {
-    const prefix = "dm-r" + r + "-";
-    for (const kind of KIND_IDS) ids.push(prefix + kind + "-src");
-    ids.push(prefix + "air-icon-src", prefix + "label-src");
-  }
-  return ids;
-}
-
 /**
  * Supprime toutes les couches de tracé (nouvelle manche / nouvelle partie :
  * l'itinéraire précédent ne doit plus polluer la carte).
  */
 export function removeRouteOverlay(map: MLMap): void {
-  for (const id of overlayLayerIds()) {
-    if (map.getLayer(id)) map.removeLayer(id);
-  }
-  for (const id of overlaySourceIds()) {
-    if (map.getSource(id)) map.removeSource(id);
-  }
+  for (let r = 1; r <= ROUTE_COUNT; r++) removeRouteLayers(map, r);
 }

@@ -630,6 +630,41 @@ a {
   margin-bottom: 0.6rem;
 }
 
+/* ---------- Partage du résultat final (réseaux sociaux, sans spoiler) ---------- */
+
+.dm-share-section {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--dm-border);
+}
+
+.dm-share-title {
+  margin: 0 0 0.55rem;
+  font-weight: 700;
+  color: var(--dm-foam);
+  font-size: 0.95rem;
+}
+
+.dm-share-networks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dm-share-net {
+  flex: 1 1 auto;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.dm-share-note {
+  margin: 0.5rem 0 0;
+  color: var(--dm-mist);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
 /* ---------- Épingles de carte (contenu dans un enfant : maplibre réserve
    l'élément racine du marker pour son propre transform) ---------- */
 
@@ -1150,6 +1185,19 @@ a {
   background: var(--dm-gold-soft);
   border: 1px solid rgba(232, 180, 74, 0.4);
   white-space: nowrap;
+}
+
+/* Multiplicateur de score de l'itinéraire (×1 / ×1,5 / ×2) dans l'indicateur. */
+.dm-route-mult {
+  margin-left: 0.35rem;
+  color: var(--dm-gold-strong);
+}
+
+/* Niveau de difficulté (type de villes possibles) dans l'indicateur. */
+.dm-route-tier {
+  margin-left: 0.35rem;
+  color: var(--dm-mist);
+  font-weight: 500;
 }
 
 .dm-total-score {

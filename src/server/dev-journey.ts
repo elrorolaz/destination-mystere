@@ -141,6 +141,7 @@ export async function getMajorAirports(): Promise<AirportPick[]> {
  */
 export async function pickRandomChallenge(
   rand: () => number = Math.random,
+  opts: { minPopulation?: number } = {},
 ): Promise<RandomJourneyPick | null> {
   const cache = await getCitiesCache();
   if (!cache) return null;
@@ -148,8 +149,12 @@ export async function pickRandomChallenge(
   // Design clusters : seules les villes de référence (affichées/cliquables)
   // peuvent être départ ou destination.
   const isRef = (c: (typeof cities)[number]): boolean => cache.clusters.isRef(c.id);
+  // Difficulté échelonnée comme en production : le seuil de population ne
+  // filtre QUE la destination (minPopulationForSlot(slot) ; 0 = tout le
+  // corpus) — le départ peut être n'importe quelle ville française avec gare.
+  const minPop = opts.minPopulation ?? 0;
   const origins = cities.filter(
-    (c) => c.country === "FR" && c.hasTrainStation && c.population >= 20000 && isRef(c),
+    (c) => c.country === "FR" && c.hasTrainStation && isRef(c),
   );
   if (origins.length === 0) return null;
   const airports = await getMajorAirports();
@@ -157,10 +162,12 @@ export async function pickRandomChallenge(
   const noAir = rand() < 0.4;
   const zone: Zone = noAir ? (rand() < 0.5 ? "FR" : "EU") : "EU";
   const allowAir = zone === "EU" && !noAir;
-  const dests =
-    zone === "FR"
-      ? cities.filter((c) => c.country === "FR" && c.hasTrainStation && c.population >= 30000 && isRef(c))
-      : cities.filter((c) => c.country !== "FR" && c.population >= 50000 && isRef(c));
+  const dests = cities.filter(
+    (c) =>
+      (zone === "FR" ? c.country === "FR" : c.country !== "FR") &&
+      c.population >= minPop &&
+      isRef(c),
+  );
   if (dests.length === 0) return null;
 
   // 1) Vrai planner (routeur réel + vérification) sur des paires aléatoires.
